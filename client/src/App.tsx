@@ -1,16 +1,43 @@
+import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
+import Diary from './pages/Diary';
+import FoodLibrary from './pages/FoodLibrary';
+
 function App() {
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900">
-      <div className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="text-3xl font-semibold">v--v Vitals</h1>
-        <p className="mt-4 text-slate-600">
-          This is the minimal React + TypeScript starter for the vv-vitals frontend.
-        </p>
-        <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
-          Open the browser at <span className="font-semibold">http://localhost:5173</span> once the frontend starts.
-        </div>
+    <BrowserRouter>
+      <div className="min-h-screen bg-slate-50 text-slate-900">
+        <nav className="border-b border-slate-200 bg-white px-4 py-4">
+          <div className="mx-auto flex max-w-3xl items-center justify-between">
+            <span className="text-xl font-semibold">v--v Vitals</span>
+            <div className="flex gap-6 text-sm font-medium">
+              <NavLink
+                to="/"
+                end
+                className={({ isActive }) =>
+                  isActive ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'
+                }
+              >
+                Diary
+              </NavLink>
+              <NavLink
+                to="/foods"
+                className={({ isActive }) =>
+                  isActive ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'
+                }
+              >
+                Food Library
+              </NavLink>
+            </div>
+          </div>
+        </nav>
+        <main className="mx-auto max-w-3xl px-4 py-8">
+          <Routes>
+            <Route path="/" element={<Diary />} />
+            <Route path="/foods" element={<FoodLibrary />} />
+          </Routes>
+        </main>
       </div>
-    </div>
+    </BrowserRouter>
   );
 }
 

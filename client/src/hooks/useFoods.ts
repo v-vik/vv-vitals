@@ -1,24 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, Food, FoodsSchema } from '../lib/api';
-
-const fetchFoods = async () => {
-  const response = await api.get('/api/foods');
-  return FoodsSchema.parse(response.data);
-};
+import { getFoods, createFood, deleteFood, CreateFood } from '../lib/api';
 
 export const useFoods = () => {
-  return useQuery({ queryKey: ['foods'], queryFn: fetchFoods });
+  return useQuery({ queryKey: ['foods'], queryFn: getFoods });
 };
 
 export const useCreateFood = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: Omit<Food, 'id' | 'created_at'>) => {
-      const response = await api.post('/api/foods', payload);
-      return Food.parse(response.data);
-    },
+    mutationFn: (payload: CreateFood) => createFood(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries(['foods']);
+      queryClient.invalidateQueries({ queryKey: ['foods'] });
+    },
+  });
+};
+
+export const useDeleteFood = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => deleteFood(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['foods'] });
     },
   });
 };
