@@ -13,3 +13,11 @@ yarn-error.log*
 .pnpm-debug.log*
 .vscode/
 .idea/
+
+# Local session files
+CLAUDE_CODE_PROMPT.md
+chat1.md
+claude_design/
+/*.jpg
+/*.jpeg
+/*.png
