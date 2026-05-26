@@ -18,10 +18,10 @@ export const initDb = () => {
     CREATE TABLE IF NOT EXISTS foods (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
-      calories_per_100g INTEGER NOT NULL,
-      protein_per_100g INTEGER NOT NULL,
-      carbs_per_100g INTEGER NOT NULL,
-      fat_per_100g INTEGER NOT NULL,
+      calories_per_100g REAL NOT NULL,
+      protein_per_100g REAL NOT NULL,
+      carbs_per_100g REAL NOT NULL,
+      fat_per_100g REAL NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 

@@ -26,10 +26,9 @@ app.get('/api/health', (_req: Request, res: Response) => {
 app.use('/api/foods', foodsRouter);
 app.use('/api/diary', diaryRouter);
 
-app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err);
   res.status(500).json({ error: 'An unexpected error occurred' });
-  next();
 });
 
 app.listen(port, () => {

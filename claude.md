@@ -1,69 +1,189 @@
 # v--v Vitals — Claude Code Guide
 
-> Paste this file into Claude Code (VS Code) at the start of your session.
-> Work through each phase in order. Each phase has a clear goal and should take roughly 45–60 minutes.
-> Total estimated time: 4 hours.
+> Paste this entire file into Claude Code (VS Code) at the start of your session.
+> Work through each phase in order. Each phase has a clear goal.
+> Total estimated time: 4–5 hours.
 
 ---
 
-## Project Overview
+## What we are building
 
-v--v Vitals is a personal nutrition & meal tracking app — your self-built MyFitnessPal alternative. Built under the v--v personal brand with emphasis on clean TypeScript, real API design, and accessible UI.
+**v--v Vitals** is a day-planning nutrition app — the opposite of conventional calorie trackers.
+Instead of logging meals *after* you eat, you build your full day of eating *upfront*, see your
+running macro totals in real time, and adjust until the day looks right.
 
-Features:
-- A reusable **food library** (define foods once, log repeatedly)
-- A **daily food diary** (log meals by date)
-- A **React + TypeScript frontend** with shadcn/ui components
-- A **Node.js + Express + TypeScript backend**
-- A **SQLite database** via `better-sqlite3`
-- **React Query** for data fetching and caching
-- **Zod** for runtime API validation
+### Three ways to add food
+
+| Method | How it works |
+|---|---|
+| **Search** | Type a food name → query Open Food Facts API → pick from results |
+| **Describe** | Type "Big Mac meal with Coke" → Claude AI estimates macros |
+| **Screenshot** | Paste or upload a menu photo → Claude AI reads it and extracts items |
+
+All three output the same thing: a food item with calories, protein, carbs, fat + a gram quantity.
+
+### Meal grouping
+
+Foods can be added as standalone items or grouped into named meals (e.g. "Yoghurt bowl").
+When you search for berries and you already have yoghurt in your plan, the modal shows an
+**"Add to Chobani yoghurt"** button as a contextual third action — it appears automatically
+because the app detects an existing group.
+
+### The modal interaction (key UI pattern)
+
+Every food opens a detail modal:
+- Shows macros per 100g
+- Has a **slider** for quantity in grams — macros update live as you drag
+- Shows **day total after adding** so you can see the impact before committing
+- Three action buttons: Save to favourites / Add to plan / Add to [existing meal group]
+
+### Favourites library
+
+Foods added from any source (search, AI text, AI image) can be saved to a personal favourites
+library stored in SQLite. One click to re-add a favourite to today's plan.
+
+### No targets, no history
+
+The app shows running totals only — no daily calorie targets, no previous days.
+Today's plan resets each session. Clean and focused.
 
 ---
 
-## Prerequisites Checklist
+## Brand
 
-Before starting, make sure you have the following installed:
+This project lives under the **v--v personal brand**.
 
-### Required Software
-- [ ] **Node.js** (v18 or higher) — https://nodejs.org — download the LTS version
-- [ ] **VS Code** — https://code.visualstudio.com
-- [ ] **Git** — https://git-scm.com
+- Colours: `#0A0612` void bg, `#8B2635` burgundy accent, `#E5DBCB` parchment text, `#5C1A6B` nebula purple
+- Fonts: DM Serif Display (headings) + DM Mono (body/UI)
+- Logo mark: `v--v` — the `--` rendered in burgundy, the `v` characters in parchment
+- Product name displayed as: **v--v Vitals**
 
-### Required VS Code Extensions
-Install these from the Extensions panel (Ctrl+Shift+X):
-- [ ] **ESLint** (`dbaeumer.vscode-eslint`)
-- [ ] **Prettier** (`esbenp.prettier-vscode`)
-- [ ] **Tailwind CSS IntelliSense** (`bradlc.vscode-tailwindcss`)
-- [ ] **Thunder Client** (`rangav.vscode-thunder-client`) — for testing your API
+When Claude Code generates UI, reference this brand. The app should feel dark, precise, and
+purposeful — not a generic health app.
 
-### Verify your installs (run in terminal):
-```bash
-node --version   # should print v18.x.x or higher
-npm --version    # should print 9.x.x or higher
-git --version    # should print git version x.x.x
+---
+
+## Stack
+
+| Layer | Technology | Why |
+|---|---|---|
+| Frontend | React + TypeScript | Role requirement, industry standard |
+| Components | shadcn/ui + Tailwind | Accessibility (Radix primitives), polish |
+| Data fetching | React Query | Caching, loading states, async management |
+| Validation | Zod | Runtime safety on API + AI responses |
+| AI analysis | Anthropic Claude API (claude-sonnet-4-20250514) | Text + vision macro extraction |
+| Food database | Open Food Facts API | Free, no API key, 3M+ products |
+| Backend | Node.js + Express + TypeScript | Favourites persistence |
+| Database | SQLite via better-sqlite3 | Zero config, local, fast |
+| Routing | React Router | Multi-view navigation |
+
+---
+
+## Folder structure
+
+```
+vv-vitals/
+  client/                  ← React + TypeScript frontend
+    src/
+      components/
+        FoodModal.tsx       ← The detail modal with slider
+        FoodSearch.tsx      ← Search bar + results list
+        DayPlan.tsx         ← Today's plan with meal groups
+        MacroTotals.tsx     ← Running totals bar
+        FavouritesList.tsx  ← Saved favourites
+        AIInput.tsx         ← Text description + image upload
+      hooks/
+        useFoods.ts         ← React Query hook for food search
+        useFavourites.ts    ← React Query hook for favourites CRUD
+        useAIAnalysis.ts    ← Hook for Claude API calls
+        useDayPlan.ts       ← useReducer hook for today's plan state
+      lib/
+        api.ts              ← Axios instance + typed API functions
+        schemas.ts          ← Zod schemas for all data shapes
+        macros.ts           ← Pure macro calculation functions
+      types/
+        index.ts            ← Shared TypeScript interfaces
+      pages/
+        PlanPage.tsx        ← Main page (search + plan side by side)
+        FavouritesPage.tsx  ← Saved foods library
+    index.css
+    main.tsx
+    App.tsx
+  server/
+    src/
+      index.ts              ← Express entry point
+      db.ts                 ← SQLite setup
+      routes/
+        favourites.ts       ← /api/favourites CRUD
+        analyse.ts          ← /api/analyse (proxies Claude API)
+      types/
+        index.ts
 ```
 
 ---
 
-## Security considerations before you begin
+## Data model
 
-This project should start with secure defaults because it handles personal diary and nutrition data.
+### TypeScript types (client/src/types/index.ts)
 
-- Keep secrets out of source control. Add `.env`, `server/data/`, and any `.db` files to `.gitignore` before committing.
-- Restrict CORS to the exact frontend origin in development (`http://localhost:5173`) and to the deployed frontend domain in production.
-- Avoid hard-coded API URLs or credentials in the frontend. Use environment variables and runtime config where possible.
-- Validate all incoming request data in the backend. Use Zod or explicit validation for query params, body payloads, dates, numeric fields, and enums.
-- Use parameterized SQL statements rather than string concatenation to prevent SQL injection.
-- Don’t return raw stack traces to clients; use a centralized error handler with sanitized messages.
-- Keep the app open during early development, but add at least a simple authentication or access control layer before you deploy or share the API publicly.
-- Avoid rendering untrusted HTML in the UI. Display diary notes and food names as plain text only.
+```typescript
+// A food item from any source — search, AI text, AI image, or favourites
+interface Food {
+  id: string
+  name: string
+  brand?: string
+  source: 'search' | 'ai-text' | 'ai-image' | 'favourite'
+  per100g: {
+    calories: number
+    protein: number
+    carbs: number
+    fat: number
+  }
+}
+
+// A food added to today's plan, with a quantity
+interface PlanItem {
+  id: string          // unique instance id (uuid)
+  food: Food
+  grams: number
+  groupId?: string    // if part of a meal group
+}
+
+// A named meal group (e.g. "Yoghurt bowl")
+interface MealGroup {
+  id: string
+  name: string        // user-defined label
+}
+
+// Today's full plan — managed by useReducer
+interface DayPlan {
+  items: PlanItem[]
+  groups: MealGroup[]
+}
+
+// Saved favourite in SQLite
+interface Favourite {
+  id: number
+  foodData: Food      // stored as JSON
+  createdAt: string
+}
+```
+
+### SQLite schema (server/src/db.ts)
+
+```sql
+CREATE TABLE IF NOT EXISTS favourites (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  food_data  TEXT NOT NULL,   -- JSON stringified Food object
+  created_at TEXT DEFAULT (datetime('now'))
+);
+```
 
 ---
 
-## Phase 1 — Project Scaffolding (45 min)
+## Phase 1 — Scaffolding (45 min)
 
-**Goal:** Get a running frontend and backend that can talk to each other.
+**Goal:** Two servers running, talking to each other.
 
 ### Step 1.1 — Create the project root
 
@@ -73,7 +193,7 @@ cd vv-vitals
 git init
 ```
 
-### Step 1.2 — Create the frontend (Vite + React + TypeScript)
+### Step 1.2 — Frontend (Vite + React + TypeScript)
 
 ```bash
 npm create vite@latest client -- --template react-ts
@@ -81,27 +201,21 @@ cd client
 npm install
 ```
 
-### Step 1.3 — Install frontend dependencies
+### Step 1.3 — Frontend dependencies
 
 ```bash
-# React Query — async data fetching and caching
 npm install @tanstack/react-query
-
-# Zod — runtime validation of API responses
 npm install zod
-
-# Axios — HTTP client (cleaner than raw fetch)
 npm install axios
-
-# shadcn/ui dependencies
+npm install react-router-dom
 npm install tailwindcss @tailwindcss/vite
 npm install class-variance-authority clsx tailwind-merge
 npm install lucide-react
 ```
 
-### Step 1.4 — Initialise Tailwind
+### Step 1.4 — Tailwind setup
 
-In `client/vite.config.ts`, add the Tailwind plugin:
+`client/vite.config.ts`:
 ```ts
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -112,56 +226,49 @@ export default defineConfig({
 })
 ```
 
-Replace the contents of `client/src/index.css` with:
+`client/src/index.css` — replace entire contents with:
 ```css
 @import "tailwindcss";
 ```
 
-### Step 1.5 — Set up shadcn/ui
+### Step 1.5 — shadcn/ui
 
 ```bash
-# From inside the client/ folder
+# from inside client/
 npx shadcn@latest init
 ```
 
-When prompted:
-- Style: **Default**
-- Base colour: **Slate**
-- CSS variables: **Yes**
+Prompts: Style → **Default**, Base colour → **Slate**, CSS variables → **Yes**
 
-Then add your first components:
 ```bash
-npx shadcn@latest add button card input label tabs badge
+npx shadcn@latest add button card input label tabs badge dialog slider
 ```
 
-### Step 1.6 — Create the backend
+> Note: `dialog` is the shadcn component that powers the food detail modal.
+> `slider` is the quantity input inside it.
+> These are Radix UI primitives under the hood — keyboard nav and accessibility come for free.
+
+### Step 1.6 — Backend
 
 ```bash
-# From the project root (vv-vitals/)
-mkdir server
-cd server
+# from vv-vitals/ root
+mkdir server && cd server
 npm init -y
-```
-
-Install backend dependencies:
-```bash
 npm install express better-sqlite3 cors dotenv
 npm install -D typescript ts-node-dev @types/express @types/better-sqlite3 @types/cors @types/node
 ```
 
-Create `server/tsconfig.json`:
+`server/tsconfig.json`:
 ```json
 {
   "compilerOptions": {
     "target": "ES2020",
     "module": "commonjs",
-    "lib": ["ES2020"],
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true
   },
   "include": ["src/**/*"],
@@ -169,7 +276,7 @@ Create `server/tsconfig.json`:
 }
 ```
 
-Add to `server/package.json` scripts:
+`server/package.json` scripts:
 ```json
 "scripts": {
   "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
@@ -178,193 +285,309 @@ Add to `server/package.json` scripts:
 }
 ```
 
-### Step 1.7 — Backend folder structure
+### Step 1.7 — Minimal backend to verify
 
-Create this structure inside `server/src/`:
-```
-server/src/
-  index.ts          ← Express app entry point
-  db.ts             ← SQLite connection and setup
-  routes/
-    foods.ts        ← /api/foods endpoints
-    diary.ts        ← /api/diary endpoints
-  types/
-    index.ts        ← Shared TypeScript types
-```
+Ask Claude Code:
+> "Create server/src/index.ts — a minimal Express + TypeScript server on port 3001,
+> CORS allowed for localhost:5173, with GET /api/health returning { status: 'ok' }"
 
-### Step 1.8 — Minimal working backend (`server/src/index.ts`)
+### Step 1.8 — Verify
 
-Ask Claude Code to generate this file. Tell it:
-> "Create a minimal Express server in TypeScript that listens on port 3001, enables CORS for localhost:5173, and has a health check route GET /api/health that returns { status: 'ok' }"
+Terminal 1: `cd server && npm run dev`
+Terminal 2: `cd client && npm run dev`
 
-### Step 1.9 — Verify Phase 1
+- http://localhost:5173 → Vite default page
+- http://localhost:3001/api/health → `{ "status": "ok" }`
 
-Run both servers side by side (two terminal tabs):
-
-Terminal 1 (backend):
-```bash
-cd server && npm run dev
-```
-
-Terminal 2 (frontend):
-```bash
-cd client && npm run dev
-```
-
-Open http://localhost:5173 — you should see the Vite + React default page.
-Open http://localhost:3001/api/health — you should see `{ "status": "ok" }`.
-
-**✅ Phase 1 complete when both servers run without errors.**
+**✅ Phase 1 done**
 
 ---
 
-## Phase 2 — Database Schema & Types (45 min)
+## Phase 2 — Types, Schemas & Database (30 min)
 
-**Goal:** Define your data model in SQLite and mirror it in TypeScript.
+**Goal:** Define the data model once, use it everywhere.
 
-### The data model
-
-```
-foods                    ← your reusable food library
-  id, name, calories_per_100g, protein_per_100g,
-  carbs_per_100g, fat_per_100g, created_at
-
-diary_entries            ← one row per day
-  id, date (YYYY-MM-DD), notes, created_at
-
-diary_meals              ← meals within a diary entry (Breakfast, Lunch, etc.)
-  id, diary_entry_id (FK), meal_name, created_at
-
-diary_meal_foods         ← foods logged within a meal
-  id, diary_meal_id (FK), food_id (FK),
-  quantity_grams, created_at
-```
-
-### Step 2.1 — Create the database (`server/src/db.ts`)
+### Step 2.1 — TypeScript types
 
 Ask Claude Code:
-> "Create a db.ts file using better-sqlite3 that:
-> 1. Opens/creates a SQLite database at ./data/tracker.db
+> "Create client/src/types/index.ts with the Food, PlanItem, MealGroup, DayPlan,
+> and Favourite interfaces exactly as defined in the claude.md data model section."
+
+### Step 2.2 — Zod schemas
+
+Ask Claude Code:
+> "Create client/src/lib/schemas.ts. Write Zod schemas for:
+> - FoodSchema (mirrors the Food interface)
+> - PlanItemSchema
+> - OpenFoodFactsResponseSchema (for validating raw API responses from Open Food Facts)
+> Export inferred TypeScript types using z.infer<>. Explain what z.infer does and
+> why we validate at runtime even though we have TypeScript types."
+
+### Step 2.3 — Macro calculation utility
+
+Ask Claude Code:
+> "Create client/src/lib/macros.ts with a pure function:
+> calculateMacros(food: Food, grams: number): { calories: number, protein: number, carbs: number, fat: number }
+> The formula is (per100g value × grams) / 100. Round all results to 1 decimal place.
+> Also write a sumMacros() function that takes an array of PlanItems and returns the total.
+> Explain why we separate pure calculation logic from React components."
+
+### Step 2.4 — SQLite database
+
+Ask Claude Code:
+> "Create server/src/db.ts using better-sqlite3 that:
+> 1. Opens/creates a database at ./data/vitals.db
 > 2. Enables WAL mode for performance
-> 3. Creates the four tables above with proper foreign keys and ON DELETE CASCADE
-> 4. Exports the db instance"
+> 3. Creates the favourites table from the schema in claude.md
+> 4. Exports the db instance as default"
 
-### Step 2.2 — Create shared TypeScript types (`server/src/types/index.ts`)
-
-Ask Claude Code:
-> "Create TypeScript interfaces for Food, DiaryEntry, DiaryMeal, and DiaryMealFood matching the database schema. Also create corresponding 'Create' types (omitting id and created_at) for use in POST request bodies."
-
-### Step 2.3 — Create Zod schemas on the frontend
-
-Inside `client/src/lib/schemas.ts`, ask Claude Code:
-> "Create Zod schemas that mirror the Food and DiaryEntry TypeScript types. Export inferred TypeScript types from them using z.infer<>. Explain what Zod infer does."
-
-**✅ Phase 2 complete when the database file is created on first server start and types are defined.**
+**✅ Phase 2 done**
 
 ---
 
-## Phase 3 — Backend API Routes (45 min)
+## Phase 3 — Backend API (30 min)
 
-**Goal:** Build all the API endpoints your frontend will need.
+**Goal:** Favourites CRUD + AI analysis proxy endpoint.
 
-### Foods routes (`server/src/routes/foods.ts`)
+### Favourites routes (server/src/routes/favourites.ts)
 
 | Method | Path | Description |
-|--------|------|-------------|
-| GET | /api/foods | Get all foods in the library |
-| GET | /api/foods/:id | Get a single food |
-| POST | /api/foods | Add a new food |
-| PUT | /api/foods/:id | Update a food |
-| DELETE | /api/foods/:id | Delete a food |
+|---|---|---|
+| GET | /api/favourites | Get all saved favourites |
+| POST | /api/favourites | Save a food as favourite |
+| DELETE | /api/favourites/:id | Remove a favourite |
 
-### Diary routes (`server/src/routes/diary.ts`)
+Ask Claude Code:
+> "Build server/src/routes/favourites.ts — an Express router with the three routes above.
+> The POST body is a Food object — store it as JSON in the food_data column.
+> The GET response should parse food_data back from JSON before returning.
+> Use proper HTTP status codes (200, 201, 404, 500)."
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | /api/diary | Get all diary entries (date + summary) |
-| GET | /api/diary/:date | Get full diary for a specific date (with meals and foods) |
-| POST | /api/diary/:date/meals | Add a meal to a date |
-| POST | /api/diary/:date/meals/:mealId/foods | Log a food in a meal |
-| DELETE | /api/diary/meals/:mealId | Delete a meal |
-| DELETE | /api/diary/meal-foods/:id | Remove a food from a meal |
+### AI analysis proxy (server/src/routes/analyse.ts)
 
-### Step 3.1 — Ask Claude Code to build the foods routes
+This route receives either a text description or a base64 image from the frontend,
+calls the Anthropic API, and returns structured macro data.
 
-> "Build the Express foods router in TypeScript using the db instance. Each route should use proper HTTP status codes. The POST route should validate that required fields exist before inserting. Return JSON."
+Ask Claude Code:
+> "Build server/src/routes/analyse.ts with POST /api/analyse.
+> Request body: { type: 'text' | 'image', content: string }
+> 
+> For type 'text': call the Anthropic API with the claude-sonnet-4-20250514 model,
+> send a system prompt that says the model should return ONLY valid JSON in this shape:
+> { name: string, estimatedGrams: number, per100g: { calories, protein, carbs, fat } }
+> No markdown, no explanation, just JSON.
+>
+> For type 'image': send the base64 image to the Claude API using the image content block format,
+> ask it to identify all food items visible and return an array of the same JSON shape.
+>
+> Parse and return the structured response. If parsing fails, return a 422 with an error message.
+> Explain why we proxy through our backend rather than calling Anthropic directly from the browser."
 
-### Step 3.2 — Ask Claude Code to build the diary routes
+> **Important note for Claude Code:** The Anthropic API key should be stored in server/.env
+> as ANTHROPIC_API_KEY. Never expose it to the frontend.
 
-> "Build the Express diary router. The GET /api/diary/:date route should return the full nested structure: diary entry → meals → foods with nutrition info joined from the foods table."
+### Wire up routes
 
-### Step 3.3 — Test with Thunder Client
+Ask Claude Code:
+> "Update server/src/index.ts to mount:
+> - favourites router at /api/favourites
+> - analyse router at /api/analyse"
 
-Use the Thunder Client VS Code extension to manually test each route before moving to the frontend. This saves debugging time later.
-
-**✅ Phase 3 complete when all routes return correct data in Thunder Client.**
+**✅ Phase 3 done**
 
 ---
 
-## Phase 4 — Frontend (60 min)
+## Phase 4 — Frontend Core (60 min)
 
-**Goal:** Build the two main views — Food Library and Daily Diary.
+**Goal:** React Query wired up, API client built, day plan state working.
 
-### Step 4.1 — Set up React Query (`client/src/main.tsx`)
-
-Ask Claude Code:
-> "Wrap the App component in a QueryClientProvider from @tanstack/react-query. Explain what QueryClientProvider does and why it needs to wrap the whole app."
-
-### Step 4.2 — Create an API client (`client/src/lib/api.ts`)
+### Step 4.1 — QueryClientProvider
 
 Ask Claude Code:
-> "Create an axios instance pointed at http://localhost:3001. Export typed functions for each API endpoint: getFoods, createFood, deleteFood, getDiaryEntry, addMealToDate, logFoodInMeal. Each function should have TypeScript return types."
+> "Update client/src/main.tsx to wrap App in a QueryClientProvider from @tanstack/react-query.
+> Enable React Query Devtools in development mode.
+> Explain what QueryClientProvider does and why it wraps the entire app."
 
-### Step 4.3 — Create React Query hooks (`client/src/hooks/`)
-
-Ask Claude Code:
-> "Create custom hooks useFoods() and useDiaryEntry(date: string) using useQuery from React Query. Explain the difference between useQuery and useEffect for data fetching, and what the queryKey does."
-
-Also create mutation hooks:
-> "Create useCreateFood() and useLogFood() using useMutation from React Query. After each mutation succeeds, invalidate the relevant query so the UI refreshes automatically."
-
-### Step 4.4 — Food Library view (`client/src/pages/FoodLibrary.tsx`)
+### Step 4.2 — API client
 
 Ask Claude Code:
-> "Build a Food Library page using shadcn/ui components. It should:
-> - List all foods in cards showing name, calories, protein, carbs, fat per 100g
-> - Have an 'Add Food' form with inputs for all nutrition fields
-> - Show a loading state while fetching
-> - Show an error state if the fetch fails
-> Use the useFoods hook and useCreateFood mutation."
+> "Create client/src/lib/api.ts with an axios instance pointing to http://localhost:3001.
+> Export these typed functions:
+> - searchFoods(query: string): Promise<Food[]>  ← calls Open Food Facts API (not our backend)
+> - getFavourites(): Promise<Favourite[]>
+> - saveFavourite(food: Food): Promise<Favourite>
+> - deleteFavourite(id: number): Promise<void>
+> - analyseText(description: string): Promise<Food>
+> - analyseImage(base64: string): Promise<Food[]>
+>
+> For searchFoods, the Open Food Facts URL is:
+> https://world.openfoodfacts.org/cgi/search.pl?search_terms={query}&json=true&page_size=10
+> Parse the response through OpenFoodFactsResponseSchema using Zod before returning.
+> Explain the difference between calling Open Food Facts directly vs proxying through our backend."
 
-### Step 4.5 — Diary view (`client/src/pages/Diary.tsx`)
+### Step 4.3 — Day plan state with useReducer
+
+This is the most important state in the app. Ask Claude Code:
+> "Create client/src/hooks/useDayPlan.ts using useReducer.
+> The state shape is DayPlan: { items: PlanItem[], groups: MealGroup[] }
+> 
+> Actions to handle:
+> - ADD_ITEM: { food: Food, grams: number, groupId?: string }
+> - REMOVE_ITEM: { id: string }
+> - UPDATE_GRAMS: { id: string, grams: number }
+> - ADD_GROUP: { name: string }
+> - REMOVE_GROUP: { id: string }
+> - RESET: clear everything
+>
+> Export the state and dispatch. Also export a derived selector:
+> getDayTotals(items: PlanItem[]) that uses sumMacros() from macros.ts.
+>
+> Explain why useReducer is better than multiple useState calls here, and what
+> a 'discriminated union' type is — use the action type as an example."
+
+### Step 4.4 — React Query hooks
 
 Ask Claude Code:
-> "Build a Diary page that:
-> - Defaults to today's date, with prev/next day navigation
-> - Shows meals grouped by name (Breakfast, Lunch, Dinner, Snacks)
-> - Shows total calories and macros for the day
-> - Has an 'Add Meal' button and a way to log a food from the library into a meal
-> Use shadcn/ui Tabs for meal grouping and the useDiaryEntry hook."
+> "Create client/src/hooks/useFoods.ts — a useQuery hook that calls searchFoods(query).
+> Only run the query when query.length >= 2. Explain what the queryKey array does
+> and how React Query decides when to refetch.
+>
+> Create client/src/hooks/useFavourites.ts with:
+> - useQuery for getFavourites()
+> - useMutation for saveFavourite() — on success, invalidate the favourites query
+> - useMutation for deleteFavourite() — on success, invalidate the favourites query
+> Explain what query invalidation does and why it's needed."
 
-### Step 4.6 — Navigation (`client/src/App.tsx`)
+### Step 4.5 — AI analysis hook
 
 Ask Claude Code:
-> "Set up React Router with two routes: / for the Diary and /foods for the Food Library. Add a simple top nav bar using shadcn/ui components."
+> "Create client/src/hooks/useAIAnalysis.ts with two useMutation hooks:
+> - useAnalyseText(): calls analyseText(), returns a Food object
+> - useAnalyseImage(): calls analyseImage(), returns Food[]
+> Both should show a loading state while the AI is processing.
+> Explain what useMutation is for (as opposed to useQuery) and when to use each."
 
-Install React Router first:
-```bash
-cd client && npm install react-router-dom
-```
-
-**✅ Phase 4 complete when you can add foods to the library and log them in a diary entry.**
+**✅ Phase 4 done**
 
 ---
 
-## Phase 5 — Polish & README (15 min)
+## Phase 5 — UI Components (60 min)
 
-**Goal:** Make the project presentable for a portfolio.
+**Goal:** Build the visual layer. Reference the v--v brand throughout.
 
-### Step 5.1 — Create a `.gitignore` at the project root
+### Step 5.1 — MacroTotals bar
+
+Ask Claude Code:
+> "Create client/src/components/MacroTotals.tsx.
+> Props: totals: { calories: number, protein: number, carbs: number, fat: number }
+> Display as a fixed bottom bar or a sticky top section — four stat cards side by side.
+> Style it using the v--v brand: dark background (#0A0612), parchment text (#E5DBCB),
+> burgundy accents (#8B2635), DM Mono font.
+> Use shadcn/ui Card and Badge components."
+
+### Step 5.2 — FoodModal (the key component)
+
+This is the most technically interesting component in the app. Ask Claude Code:
+> "Create client/src/components/FoodModal.tsx using shadcn/ui Dialog and Slider.
+>
+> Props:
+> - food: Food | null        (null = modal closed)
+> - existingGroups: MealGroup[]
+> - currentDayCalories: number
+> - onAddToPlan: (food: Food, grams: number, groupId?: string) => void
+> - onSaveFavourite: (food: Food) => void
+> - onClose: () => void
+>
+> Behaviour:
+> - Slider controls gram quantity (25g to 500g, step 25g)
+> - Macros update live as slider moves — use calculateMacros() from macros.ts
+> - 'Day total after adding' updates live too
+> - Show an 'Add to [group name]' button for EACH existing meal group
+>   (e.g. 'Add to Chobani yoghurt') — these appear automatically from existingGroups prop
+> - Two primary buttons: 'Save to favourites' and 'Add to plan'
+>
+> Style it to match the v--v brand.
+>
+> Explain: what is a controlled component? How does the slider become one?
+> What is prop drilling and is it happening here?"
+
+### Step 5.3 — FoodSearch
+
+Ask Claude Code:
+> "Create client/src/components/FoodSearch.tsx.
+> - Controlled text input, debounced 400ms before triggering useFoods query
+> - Explain what debouncing is and why it matters for API calls
+> - Show loading spinner while fetching
+> - Render search results as clickable cards showing name, brand, calories per 100g
+> - Clicking a result opens the FoodModal (lift the selected food up via callback prop)
+> - Show a message if no results found"
+
+### Step 5.4 — AIInput
+
+Ask Claude Code:
+> "Create client/src/components/AIInput.tsx with two tabs using shadcn/ui Tabs:
+>
+> Tab 1 — Describe it:
+> - Textarea for typing a meal description (e.g. 'large Big Mac meal with Coke')
+> - Submit button that calls useAnalyseText()
+> - Show a loading state with text like 'Analysing...' while waiting
+> - On success, open FoodModal with the returned Food
+>
+> Tab 2 — Screenshot it:
+> - File input accepting image/* or a paste event listener for clipboard images
+> - On image selected/pasted, convert to base64 and call useAnalyseImage()
+> - If multiple foods returned, show them as a list to add individually
+> - Show a preview of the pasted image
+>
+> Explain: what is base64 encoding and why do we use it to send images?"
+
+### Step 5.5 — DayPlan
+
+Ask Claude Code:
+> "Create client/src/components/DayPlan.tsx.
+> - Renders today's plan grouped by MealGroup, then ungrouped items below
+> - Each group has a header label and its items listed underneath
+> - Each item shows: food name, grams, and calculated calories
+> - Remove button on each item (calls REMOVE_ITEM dispatch)
+> - 'Add new group' button that prompts for a group name
+> - Empty state message when no items added yet"
+
+### Step 5.6 — FavouritesList
+
+Ask Claude Code:
+> "Create client/src/components/FavouritesList.tsx.
+> - Uses useFavourites() hook to fetch saved foods
+> - Each favourite shows as a card with name, calories per 100g
+> - Clicking it opens FoodModal to add to today's plan
+> - Delete button to remove from favourites
+> - Empty state if no favourites saved yet"
+
+### Step 5.7 — Pages and routing
+
+Ask Claude Code:
+> "Create client/src/pages/PlanPage.tsx — the main page.
+> Layout: two-column on desktop, stacked on mobile.
+> Left column: FoodSearch + AIInput (the 'find food' side)
+> Right column: DayPlan + MacroTotals (the 'today's plan' side)
+> FoodModal sits here, controlled by a selectedFood state in this component.
+> Wire useDayPlan dispatch into all the child component callbacks.
+>
+> Create client/src/pages/FavouritesPage.tsx — just renders FavouritesList with a heading.
+>
+> Update client/src/App.tsx with React Router:
+> / → PlanPage
+> /favourites → FavouritesPage
+> Add a minimal top nav with the v--v Vitals wordmark and a link to Favourites."
+
+**✅ Phase 5 done**
+
+---
+
+## Phase 6 — Polish & Deploy (30 min)
+
+**Goal:** Presentable for portfolio, live on the internet.
+
+### Step 6.1 — .gitignore (project root)
 
 ```
 node_modules/
@@ -374,62 +597,111 @@ server/data/
 *.db
 ```
 
-### Step 5.2 — Create `README.md` at the project root
+### Step 6.2 — Environment variables
+
+`server/.env`:
+```
+ANTHROPIC_API_KEY=your_key_here
+PORT=3001
+```
+
+Get a free Anthropic API key at: https://console.anthropic.com
+
+### Step 6.3 — README
 
 Ask Claude Code:
-> "Write a professional README for this project including: project description, tech stack, setup instructions, and a brief explanation of key architecture decisions (why React Query, why Zod, why SQLite)."
+> "Write a professional README.md for v--v Vitals at the project root.
+> Include: what it is and the 'plan before you eat' philosophy, tech stack,
+> local setup instructions, and a section on key architecture decisions
+> (why useReducer, why Zod, why proxy the AI through backend, why shadcn for accessibility)."
 
-### Step 5.3 — First Git commit
+### Step 6.4 — Git and GitHub
 
 ```bash
 git add .
 git commit -m "feat: initial v--v Vitals implementation"
 ```
 
-### Step 5.4 — Push to GitHub
-
 1. Go to https://github.com/new
-2. Create a new **public** repo called `vv-vitals`
-3. Follow the "push existing repo" instructions GitHub shows you
+2. Create a public repo called `vv-vitals`
+3. Follow GitHub's "push existing repo" instructions
 
-**✅ Phase 5 complete when your repo is live on GitHub.**
+### Step 6.5 — Deploy
+
+**Frontend → Vercel (free)**
+1. Go to vercel.com → Import Git repository
+2. Set root directory to `client/`
+3. Deploy — your frontend is live at `vv-vitals.vercel.app`
+
+**Backend → Railway (free tier)**
+1. Go to railway.app → New project → Deploy from GitHub
+2. Set root to `server/`
+3. Add environment variable: `ANTHROPIC_API_KEY`
+4. Railway gives you a public URL (e.g. `vv-vitals-backend.up.railway.app`)
+
+**Update the API base URL**
+In `client/src/lib/api.ts`, change the axios baseURL from `localhost:3001`
+to your Railway backend URL before deploying the frontend.
+
+**✅ Phase 6 done — v--v Vitals is live**
 
 ---
 
-## Talking Points for Interviews
+## React + TypeScript concepts demonstrated
 
-When you discuss this project at JB Hi-Fi, you can speak to:
+This is what you can speak to in a JB Hi-Fi interview:
 
-- **TypeScript generics** — "I used generics on my API response types so the fetch functions were reusable but still type-safe"
-- **React Query over useEffect** — "React Query handles caching, background refetching, and loading states — writing that manually in useEffect gets messy fast"
-- **Zod for validation** — "The API could return unexpected shapes, so I validate responses at runtime with Zod rather than trusting TypeScript types alone"
-- **Accessibility** — "I used shadcn/ui which is built on Radix UI primitives, so keyboard navigation and ARIA attributes are handled correctly by default"
-- **Separation of concerns** — "The frontend never touches the database directly — it only talks to the Express API, which is the same pattern you'd use with any real backend"
+**`useReducer` for complex state**
+> "The day plan has items, groups, and derived totals all changing together.
+> useReducer with discriminated union action types keeps that predictable —
+> every state change goes through one place."
+
+**Controlled components + derived state**
+> "The slider is a controlled input — React owns the value, not the DOM.
+> The macros aren't stored separately, they're calculated from grams on every render.
+> That's the React pattern: store the minimum, derive everything else."
+
+**React Query over useEffect**
+> "React Query handles caching, background refetching, and loading states.
+> Doing that manually in useEffect produces bugs — stale data, race conditions,
+> missing loading states."
+
+**Zod for runtime validation**
+> "TypeScript types disappear at runtime. The Open Food Facts API and the Claude AI
+> response can return unexpected shapes. Zod validates them at the boundary so
+> TypeScript errors stay meaningful rather than silently passing bad data through."
+
+**Accessibility via shadcn/ui**
+> "The food modal uses shadcn/ui Dialog, which is built on Radix UI. Focus trapping,
+> Escape key to close, and ARIA attributes come for free. The JD mentioned accessibility
+> awareness — this is how I approached it practically."
+
+**AI proxied through backend**
+> "The Anthropic API key never touches the browser. The frontend sends a description
+> or image to our own Express endpoint, which calls Anthropic server-side and returns
+> structured JSON. This is the correct security pattern for any third-party API key."
+
+**TypeScript generics on API responses**
+> "The searchFoods function has a generic return type. The Zod schema infers its
+> TypeScript type — so the schema and the type are the same source of truth."
 
 ---
 
 ## Troubleshooting
 
-**CORS errors in the browser:**
-Make sure your Express server has `cors()` middleware applied before your routes, and that it allows `http://localhost:5173`.
+**CORS errors:** Confirm `cors()` middleware in Express allows `http://localhost:5173`.
 
-**`better-sqlite3` install fails:**
-Run `npm install --build-from-source better-sqlite3` — it needs to compile native bindings.
+**`better-sqlite3` install fails:** Run `npm install --build-from-source better-sqlite3`.
 
-**shadcn components not styled:**
-Make sure `@import "tailwindcss"` is at the top of `index.css` and that the Tailwind Vite plugin is in `vite.config.ts`.
+**Open Food Facts returns empty results:** Try simpler search terms. The API is fuzzy —
+"greek yoghurt" works better than "Chobani Greek Yoghurt 500g".
 
-**TypeScript errors on the backend:**
-Check that `"strict": true` is in your `tsconfig.json` — this is intentional. Fix the errors rather than disabling strict mode; it's teaching you good habits.
+**Claude API returns non-JSON:** The system prompt must say "return ONLY valid JSON, no
+markdown, no explanation". If it still wraps in backticks, strip them in the route handler
+before JSON.parse().
 
----
+**shadcn Slider not styled:** Ensure `@import "tailwindcss"` is the first line of index.css
+and the Tailwind Vite plugin is in vite.config.ts.
 
-## Deploying Later (Optional)
-
-Once the app is working locally, here's how to make it publicly accessible:
-
-1. **Frontend → Vercel** (free): Connect your GitHub repo at vercel.com, set the root directory to `client/`, done.
-2. **Backend → Railway** (free tier): Connect your GitHub repo at railway.app, set the root to `server/`, add a start command of `npm start`.
-3. **Update the API base URL** in `client/src/lib/api.ts` to point at your Railway URL instead of `localhost:3001`.
-
-Note: SQLite on Railway works fine for a portfolio project. For a production app you'd migrate to a hosted Postgres.
+**TypeScript strict mode errors:** Fix them. Do not add `// @ts-ignore`. Strict mode errors
+are teaching you something — ask Claude Code to explain each one before fixing it.
