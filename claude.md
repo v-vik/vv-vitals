@@ -6,6 +6,17 @@
 
 ---
 
+## Essential reading before any new session
+
+**Read these files before making any design or build decisions:**
+
+- `RESEARCH.md` — user flow research, Yuka analysis, the Destiny 1 UI concept, the ingredient swap mechanic, and all design decisions made so far. This is the source of truth for where the product is going.
+- `NOTES.md` — Open Food Facts API constraints, barcode scanning library choice, rate limits, and gotchas.
+
+The current UI is being redesigned. Do not continue building on the existing layout without reading RESEARCH.md first.
+
+---
+
 ## What we are building
 
 **v--v Vitals** is a day-planning nutrition app — the opposite of conventional calorie trackers.

@@ -152,6 +152,24 @@ export function FoodGlyph({ food, size = 32, className = '' }: FoodGlyphProps) {
   const tint = categoryTint[food.category] ?? 'burgundy';
   const iconPx = Math.round(size * 0.62);
 
+  if (food.imageUrl) {
+    return (
+      <span
+        className={`food-glyph food-glyph--img ${className}`}
+        style={{ width: size, height: size }}
+        aria-hidden="true"
+        title={food.category}
+      >
+        <img
+          src={food.imageUrl}
+          alt=""
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          loading="lazy"
+        />
+      </span>
+    );
+  }
+
   return (
     <span
       className={`food-glyph food-glyph--${tint}${iconShape ? ' food-glyph--icon' : ''} ${className}`}

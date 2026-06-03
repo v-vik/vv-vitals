@@ -191,6 +191,12 @@ export function Cart({ db, plan, setPlan, goal, open, onOpenFood, onAddToGroup }
             + Add new meal group
           </button>
         )}
+
+        {plan.length > 0 && (
+          <button className="cart-clear-btn" onClick={() => setPlan([])}>
+            <Icon.Trash size={12} /> Clear all
+          </button>
+        )}
       </div>
 
       <div className="totals">

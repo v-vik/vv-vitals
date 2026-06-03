@@ -1,4 +1,19 @@
-import type { Food, PlanGroup, PlanItem, Macros, Totals } from '../types';
+import type { Food, FoodIngredient, PlanGroup, Macros, Totals } from '../types';
+
+export function ingredientToFood(ing: FoodIngredient, parentId: string): Food {
+  return {
+    id: `${parentId}--${ing.name.toLowerCase().replace(/\W+/g, '-')}`,
+    name: ing.name,
+    source: 'AI estimate',
+    category: ing.category ?? 'Ingredient',
+    cal: ing.per100g.calories,
+    protein: ing.per100g.protein,
+    carbs: ing.per100g.carbs,
+    fat: ing.per100g.fat,
+    defaultServing: ing.grams,
+    estimated: true,
+  };
+}
 
 export const FOOD_DB: Food[] = [
   {
@@ -73,6 +88,13 @@ export const FOOD_DB: Food[] = [
     cal: 1080, protein: 27, carbs: 130, fat: 51,
     defaultServing: 100,
     estimated: true,
+    ingredients: [
+      { name: 'Beef Patties', grams: 100, category: 'Protein',    per100g: { calories: 250, protein: 20, carbs: 2,  fat: 19 } },
+      { name: 'Sesame Bun',   grams: 90,  category: 'Grain',      per100g: { calories: 265, protein: 9,  carbs: 51, fat: 3  } },
+      { name: 'Special Sauce',grams: 30,  category: 'Condiment',  per100g: { calories: 350, protein: 1,  carbs: 20, fat: 30 } },
+      { name: 'Lettuce & Pickles', grams: 20, category: 'Vegetable', per100g: { calories: 15, protein: 1, carbs: 3, fat: 0 } },
+      { name: 'Large Fries',  grams: 154, category: 'Fast Food',  per100g: { calories: 320, protein: 4,  carbs: 42, fat: 15 } },
+    ],
   },
   {
     id: 'salmon',

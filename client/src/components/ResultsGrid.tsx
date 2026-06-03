@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
+import { useDraggable } from '@dnd-kit/core';
 import { FoodGlyph } from './FoodGlyph';
 import { fmt } from '../data/foods';
 import type { Food, SortKey, ViewMode } from '../types';
 
-// ── Macro ratio bar ──────────────────────────────────────
+// ── Macro ratio bar ───────────────────────────────────────
+
 interface MacroRatioBarProps {
   protein?: number;
   carbs?: number;
@@ -14,19 +16,13 @@ interface MacroRatioBarProps {
 function MacroRatioBar({ protein = 0, carbs = 0, fat = 0, maxGrams = 50 }: MacroRatioBarProps) {
   const total = protein + carbs + fat;
   if (total <= 0) return null;
-
-  // Log-scale fill so dense foods don't completely dominate
   const denom = Math.log(1 + Math.max(1, maxGrams));
   const fill = denom > 0 ? Math.max(0, Math.min(1, Math.log(1 + total) / denom)) : 0;
   const pp = (protein / total) * 100;
   const cp = (carbs / total) * 100;
 
   return (
-    <div
-      className="macro-ratio"
-      role="img"
-      aria-label={`Per 100g — ${protein}g protein, ${carbs}g carbs, ${fat}g fat`}
-    >
+    <div className="macro-ratio" role="img" aria-label={`${protein}g P, ${carbs}g C, ${fat}g F per 100g`}>
       <div className="macro-ratio-fill" style={{ width: `${fill * 100}%` }}>
         <span className="macro-ratio-seg seg-p" style={{ width: `${pp}%` }} />
         <span className="macro-ratio-seg seg-c" style={{ width: `${cp}%` }} />
@@ -36,31 +32,38 @@ function MacroRatioBar({ protein = 0, carbs = 0, fat = 0, maxGrams = 50 }: Macro
   );
 }
 
-// ── Food card ────────────────────────────────────────────
+// ── Draggable food card ───────────────────────────────────
+
 interface FoodCardProps {
   food: Food;
-  onClick: (rect: DOMRect) => void;
   maxGrams: number;
 }
 
-function FoodCard({ food, onClick, maxGrams }: FoodCardProps) {
+function FoodCard({ food, maxGrams }: FoodCardProps) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: food.id,
+    data: { food },
+  });
+
   return (
-    <button
-      className={`food-card${food.estimated ? ' ai' : ''}`}
-      onClick={(e) => onClick(e.currentTarget.getBoundingClientRect())}
+    <div
+      ref={setNodeRef}
+      className={`food-card${food.estimated ? ' ai' : ''}${isDragging ? ' food-card--dragging' : ''}`}
+      {...listeners}
+      {...attributes}
     >
       <header className="food-card-top">
         <span className="food-card-cat">
           {food.estimated ? 'AI · ' : ''}
           {food.category}
         </span>
-        <span className="food-card-source food-card-source--top">
+        <span className="food-card-source--top">
           {food.estimated ? <em>{food.source}</em> : food.source}
         </span>
       </header>
 
       <div className="food-card-hero">
-        <FoodGlyph food={food} size={88} />
+        <FoodGlyph food={food} size={80} />
       </div>
 
       <h4 className="food-card-name">{food.name}</h4>
@@ -86,17 +89,12 @@ function FoodCard({ food, onClick, maxGrams }: FoodCardProps) {
         </div>
         <MacroRatioBar protein={food.protein} carbs={food.carbs} fat={food.fat} maxGrams={maxGrams} />
       </footer>
-
-      <span className="food-card-add" aria-hidden="true">
-        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-      </span>
-    </button>
+    </div>
   );
 }
 
-// ── Sort options ─────────────────────────────────────────
+// ── Sort options ──────────────────────────────────────────
+
 const SORT_OPTIONS: { id: SortKey; label: string; key: keyof Food | null }[] = [
   { id: 'default',  label: 'Default',  key: null },
   { id: 'protein',  label: 'Protein',  key: 'protein' },
@@ -105,16 +103,18 @@ const SORT_OPTIONS: { id: SortKey; label: string; key: keyof Food | null }[] = [
   { id: 'cal',      label: 'Calories', key: 'cal' },
 ];
 
-// ── Results grid ─────────────────────────────────────────
+// ── Results grid ──────────────────────────────────────────
+
 interface ResultsGridProps {
   db: Food[];
   query: string;
   view: ViewMode;
   favourites: string[];
-  onPickFood: (food: Food, rect: DOMRect) => void;
+  searching?: boolean;
+  onPickFood?: (food: Food) => void;
 }
 
-export function ResultsGrid({ db, query, view, favourites, onPickFood }: ResultsGridProps) {
+export function ResultsGrid({ db, query, view, favourites, searching }: ResultsGridProps) {
   const [sort, setSort] = useState<SortKey>('default');
 
   const maxGrams = useMemo(() => {
@@ -129,11 +129,13 @@ export function ResultsGrid({ db, query, view, favourites, onPickFood }: Results
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     const favSet = new Set(favourites);
+    const apiSearch = q.length >= 2;
 
     const filtered = db.filter((f) => {
       if (view === 'drink' && f.category !== 'Beverage') return false;
       if (view === 'food' && f.category === 'Beverage') return false;
       if (view === 'favourite' && !favSet.has(f.id)) return false;
+      if (apiSearch) return true;
       if (!q) return true;
       return (
         f.name.toLowerCase().includes(q) ||
@@ -189,21 +191,20 @@ export function ResultsGrid({ db, query, view, favourites, onPickFood }: Results
       </div>
 
       <div className="food-grid">
-        {results.length === 0 ? (
+        {searching ? (
+          <div className="grid-empty">
+            <span className="pulse">Searching Open Food Facts…</span>
+          </div>
+        ) : results.length === 0 ? (
           <div className="grid-empty">
             <strong>{view === 'favourite' ? 'No favourites yet' : 'No matches'}</strong>
             {view === 'favourite'
-              ? 'Tap the heart in any food modal to pin it here.'
-              : 'Try a different term, or describe what you ate using AI above.'}
+              ? 'Heart a food to save it here.'
+              : 'Try a different term, or use AI describe above.'}
           </div>
         ) : (
           results.map((food) => (
-            <FoodCard
-              key={food.id}
-              food={food}
-              onClick={(rect) => onPickFood(food, rect)}
-              maxGrams={maxGrams}
-            />
+            <FoodCard key={food.id} food={food} maxGrams={maxGrams} />
           ))
         )}
       </div>

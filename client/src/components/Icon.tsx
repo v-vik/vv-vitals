@@ -118,6 +118,12 @@ export const Icon = {
       <path d="M9.5 5.5c-1 4 1 8.5 5 11" />
     </svg>
   ),
+  Trash: ({ size = 14, ...p }: IconProps) => (
+    <svg {...base(size)} strokeWidth="1.5" {...p}>
+      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  ),
 };
 
 export default Icon;
