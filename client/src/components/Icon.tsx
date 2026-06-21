@@ -124,6 +124,18 @@ export const Icon = {
       <path d="M10 11v6M14 11v6" />
     </svg>
   ),
+  Info: ({ size = 14, ...p }: IconProps) => (
+    <svg {...base(size)} strokeWidth="1.5" {...p}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8h.01M12 12v4" />
+    </svg>
+  ),
+  Camera: ({ size = 18, ...p }: IconProps) => (
+    <svg {...base(size)} strokeWidth="1.4" {...p}>
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </svg>
+  ),
 };
 
 export default Icon;

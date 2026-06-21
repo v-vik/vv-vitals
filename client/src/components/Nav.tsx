@@ -1,3 +1,5 @@
+interface NavProps {}
+
 function Wordmark({ size = 28 }: { size?: number }) {
   return (
     <span className="wordmark" style={{ fontSize: size }}>
@@ -25,13 +27,12 @@ function todayLabel() {
   return new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-export function Nav() {
+export function Nav({}: NavProps) {
   return (
     <nav className="nav">
       <div className="nav-inner">
         <ProductLockup />
         <span className="nav-date">{todayLabel()}</span>
-        <div className="nav-right" />
       </div>
     </nav>
   );

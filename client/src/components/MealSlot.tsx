@@ -1,50 +1,25 @@
 import { useDroppable } from '@dnd-kit/core';
 import { FoodGlyph } from './FoodGlyph';
-import { computeMacros } from '../data/foods';
-import type { Food, MealSlot as MealSlotType, MealSlotId, PlanItem, MacroDelta } from '../types';
+import { computeMacros, fmt } from '../data/foods';
+import type { Food, MealSlot as MealSlotType, PlanItem, MealSlotId } from '../types';
 
-// ── Bar scale — value as share of a total ─────────────────
+interface Macros { cal: number; protein: number; carbs: number; fat: number; }
+
 function sharePct(value: number, total: number): number {
   if (total <= 0 || value <= 0) return 0;
   return Math.min(100, (value / total) * 100);
 }
 
-interface Macros { cal: number; protein: number; carbs: number; fat: number; }
-
-// ── Shared edge bar renderer ──────────────────────────────
-
 function EdgeBars({ macros, totals }: { macros: Macros; totals: Macros }) {
-  const calPct  = sharePct(macros.cal,     totals.cal);
-  const protPct = sharePct(macros.protein, totals.protein);
-  const carbPct = sharePct(macros.carbs,   totals.carbs);
-  const fatPct  = sharePct(macros.fat,     totals.fat);
-
   return (
     <>
-      <div className="slot-bar slot-bar--top"    style={{ width:  `${calPct}%`,  background: 'var(--burgundy)' }} />
-      <div className="slot-bar slot-bar--bottom" style={{ width:  `${protPct}%`, background: 'var(--nebula)' }} />
-      <div className="slot-bar slot-bar--left"   style={{ height: `${carbPct}%`, background: '#E55B1F' }} />
-      <div className="slot-bar slot-bar--right"  style={{ height: `${fatPct}%`,  background: '#C8941A' }} />
+      <div className="slot-bar slot-bar--top"    style={{ width:  `${sharePct(macros.cal,     totals.cal)}%`,     background: 'var(--burgundy)' }} />
+      <div className="slot-bar slot-bar--bottom" style={{ width:  `${sharePct(macros.protein, totals.protein)}%`, background: 'var(--nebula)' }} />
+      <div className="slot-bar slot-bar--left"   style={{ height: `${sharePct(macros.carbs,   totals.carbs)}%`,   background: '#E55B1F' }} />
+      <div className="slot-bar slot-bar--right"  style={{ height: `${sharePct(macros.fat,     totals.fat)}%`,     background: '#C8941A' }} />
     </>
   );
 }
-
-// ── Delta chip ────────────────────────────────────────────
-
-interface DeltaChipProps { label: string; value: number; }
-
-function DeltaChip({ label, value }: DeltaChipProps) {
-  if (Math.abs(value) < 0.5) return null;
-  const cls = value > 0 ? 'pos' : 'neg';
-  const sign = value > 0 ? '+' : '';
-  return (
-    <span className={`delta-chip ${cls}`}>
-      {sign}{Math.round(value)}{label}
-    </span>
-  );
-}
-
-// ── Glyph collage inside the slot ────────────────────────
 
 function SlotGlyphGrid({ items, knownFoods }: { items: PlanItem[]; knownFoods: Food[] }) {
   const count = items.length;
@@ -52,24 +27,24 @@ function SlotGlyphGrid({ items, knownFoods }: { items: PlanItem[]; knownFoods: F
   if (count === 1) {
     const food = knownFoods.find((f) => f.id === items[0].foodId);
     return food ? (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-        <FoodGlyph food={food} size={64} />
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <FoodGlyph food={food} size={120} />
       </div>
     ) : null;
   }
 
   const cols = count <= 4 ? 2 : 3;
-  const size = count <= 4 ? 36 : 24;
+  const size = count <= 4 ? 72 : 48;
   const shown = items.slice(0, cols * cols);
 
   return (
     <div style={{
+      position: 'absolute',
+      inset: 0,
       display: 'grid',
       gridTemplateColumns: `repeat(${cols}, 1fr)`,
       gap: 4,
       padding: 10,
-      width: '100%',
-      height: '100%',
       alignItems: 'center',
       justifyItems: 'center',
       alignContent: 'center',
@@ -82,14 +57,13 @@ function SlotGlyphGrid({ items, knownFoods }: { items: PlanItem[]; knownFoods: F
   );
 }
 
-// ── Droppable ingredient cell ─────────────────────────────
+// ── Inline ingredient cell (droppable swap target) ────────
 
-function IngredientCell({ item, food, slotId, slotTotals, onRemove }: {
+function IngredientCell({ item, food, slotId, onRemove }: {
   item: PlanItem;
   food: Food;
   slotId: MealSlotId;
-  slotTotals: Macros;
-  onRemove: (itemId: string) => void;
+  onRemove: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `ingredient:${slotId}:${item.id}`,
@@ -99,27 +73,39 @@ function IngredientCell({ item, food, slotId, slotTotals, onRemove }: {
   const macros = computeMacros(food, item.grams);
 
   return (
-    <div
-      ref={setNodeRef}
-      className={`ingredient-cell${isOver ? ' ingredient-cell--drag-over' : ''}`}
-      title={food.name.split(',')[0]}
-    >
-      <EdgeBars macros={macros} totals={slotTotals} />
-      <FoodGlyph food={food} size={22} />
+    <div ref={setNodeRef} className={`ing-cell${isOver ? ' ing-cell--over' : ''}`}>
       <button
-        className="ingredient-cell-remove"
-        onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
+        className="ing-cell-remove"
+        onClick={(e) => { e.stopPropagation(); onRemove(); }}
         aria-label={`Remove ${food.name.split(',')[0]}`}
       >
-        <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+        <svg width={7} height={7} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
           <path d="M18 6 6 18M6 6l12 12" />
         </svg>
       </button>
+      <FoodGlyph food={food} size={36} />
+      <span className="ing-cell-name">{food.name.split(',')[0]}</span>
+      <span className="ing-cell-grams">{item.grams}g · {fmt.cal(macros.cal)}</span>
     </div>
   );
 }
 
-// ── Main MealSlot component ───────────────────────────────
+// ── Drop zone cell — add food to this meal ────────────────
+
+function AddCell({ slotId }: { slotId: MealSlotId }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `ingpanel:${slotId}`,
+    data: { type: 'slot', slotId },
+  });
+
+  return (
+    <div ref={setNodeRef} className={`ing-cell ing-cell--add${isOver ? ' ing-cell--over' : ''}`}>
+      <span style={{ fontSize: 18, lineHeight: 1 }}>{isOver ? '↓' : '+'}</span>
+    </div>
+  );
+}
+
+// ── MealSlot ──────────────────────────────────────────────
 
 interface MealSlotProps {
   slot: MealSlotType;
@@ -127,52 +113,20 @@ interface MealSlotProps {
   draggingFood: Food | null;
   dragGrams: number;
   dayTotals: Macros;
-  expanded: boolean;
-  onToggle: () => void;
-  onRemove: (itemId: string) => void;
+  isActive: boolean;
+  onSelect: () => void;
   onClear: () => void;
+  onRemoveIngredient: (itemId: string) => void;
 }
 
-export function MealSlot({ slot, knownFoods, draggingFood, dragGrams, dayTotals, expanded, onToggle, onRemove, onClear }: MealSlotProps) {
-
-  const slotDropId = `slot:${slot.id}`;
-  const { setNodeRef: setSlotRef, isOver: isSlotOver } = useDroppable({
-    id: slotDropId,
+export function MealSlot({ slot, knownFoods, draggingFood, dragGrams, dayTotals, isActive, onSelect, onClear, onRemoveIngredient }: MealSlotProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `slot:${slot.id}`,
     data: { type: 'slot', slotId: slot.id },
   });
 
   const isEmpty = slot.items.length === 0;
 
-  let slotDelta: MacroDelta | null = null;
-  if (isSlotOver && draggingFood) {
-    const m = computeMacros(draggingFood, dragGrams);
-    slotDelta = { cal: m.cal, protein: m.protein, carbs: m.carbs, fat: m.fat };
-  }
-
-  // ── Empty view ────────────────────────────────
-  if (isEmpty) {
-    return (
-      <div style={{ position: 'relative', flexShrink: 0 }}>
-        <div ref={setSlotRef} className={`meal-slot${isSlotOver ? ' meal-slot--drag-over' : ''}`}>
-          <div className="meal-slot-empty">
-            <div className="meal-slot-empty-label">{slot.label}</div>
-            <div className="meal-slot-empty-icon">
-              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </div>
-          </div>
-          {isSlotOver && slotDelta && (
-            <div className="meal-slot-delta">
-              <DeltaChip label=" cal" value={slotDelta.cal} />
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // ── Compute slot totals (used by both the slot bars and ingredient bars) ──
   let slotCal = 0, slotProtein = 0, slotCarbs = 0, slotFat = 0;
   for (const item of slot.items) {
     const food = knownFoods.find((f) => f.id === item.foodId);
@@ -182,62 +136,73 @@ export function MealSlot({ slot, knownFoods, draggingFood, dragGrams, dayTotals,
   }
   const slotTotals: Macros = { cal: slotCal, protein: slotProtein, carbs: slotCarbs, fat: slotFat };
 
-  // ── Filled view ───────────────────────────────
-  const cells = Array.from({ length: 9 }, (_, i) => slot.items[i] ?? null);
+  const dragDelta = isOver && draggingFood ? computeMacros(draggingFood, dragGrams) : null;
+
+  const showIngredients = isActive;
+  const cellItems = slot.items.slice(0, 4);
+  const showAddCell = slot.items.length < 4;
 
   return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
-      <div
-        ref={setSlotRef}
-        className={`meal-slot meal-slot-collapsed${isSlotOver ? ' meal-slot--drag-over' : ''}`}
-        onClick={onToggle}
-        style={{ cursor: 'pointer' }}
-      >
+    <div
+      className={`slot-card${isActive ? ' slot-card--active' : ''}${isOver ? ' slot-card--drag-over' : ''}`}
+      onClick={onSelect}
+    >
+      <div ref={setNodeRef} className="slot-square">
         <EdgeBars macros={slotTotals} totals={dayTotals} />
-        <SlotGlyphGrid items={slot.items} knownFoods={knownFoods} />
-        <button
-          className="meal-slot-clear"
-          onClick={(e) => { e.stopPropagation(); onClear(); }}
-          aria-label={`Clear ${slot.label}`}
-        >
-          <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-            <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
-        </button>
 
-        {isSlotOver && slotDelta && (
-          <div className="meal-slot-delta">
-            <DeltaChip label=" cal" value={slotDelta.cal} />
-            <div style={{ display: 'flex', gap: 5 }}>
-              <DeltaChip label="P" value={slotDelta.protein} />
-              <DeltaChip label="C" value={slotDelta.carbs} />
-              <DeltaChip label="F" value={slotDelta.fat} />
+        {isEmpty ? (
+          <div className="slot-square-empty">
+            <span className="slot-square-label">{slot.label}</span>
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </div>
+        ) : (
+          <>
+            <SlotGlyphGrid items={slot.items} knownFoods={knownFoods} />
+            <div className="slot-square-footer">
+              <span className="slot-square-label">{slot.label}</span>
+              <span className="slot-square-cal">{fmt.cal(slotTotals.cal)}</span>
             </div>
+            <button
+              className="slot-square-clear"
+              onClick={(e) => { e.stopPropagation(); onClear(); }}
+              aria-label={`Clear ${slot.label}`}
+            >
+              <svg width={8} height={8} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </>
+        )}
+
+        {dragDelta && (
+          <div className="slot-square-delta">
+            <span className="slot-square-delta-cal">+{Math.round(dragDelta.cal)} cal</span>
           </div>
         )}
       </div>
 
-      {expanded && (
-        <div className="ingredient-popup">
-          {cells.map((item, i) => {
-            if (!item) {
-              return <div key={i} className="ingredient-cell ingredient-cell--empty" />;
-            }
-            const food = knownFoods.find((f) => f.id === item.foodId);
-            if (!food) {
-              return <div key={item.id} className="ingredient-cell ingredient-cell--empty" />;
-            }
-            return (
-              <IngredientCell
-                key={item.id}
-                item={item}
-                food={food}
-                slotId={slot.id}
-                slotTotals={slotTotals}
-                onRemove={onRemove}
-              />
-            );
-          })}
+      {showIngredients && (
+        <div className="slot-ingredients" onClick={(e) => e.stopPropagation()}>
+          <div className="slot-ing-grid">
+            {cellItems.map((item) => {
+              const food = knownFoods.find((f) => f.id === item.foodId);
+              return food ? (
+                <IngredientCell
+                  key={item.id}
+                  item={item}
+                  food={food}
+                  slotId={slot.id}
+                  onRemove={() => onRemoveIngredient(item.id)}
+                />
+              ) : null;
+            })}
+            {showAddCell && <AddCell slotId={slot.id} />}
+          </div>
+          {slot.items.length > 4 && (
+            <div className="slot-ing-overflow">+{slot.items.length - 4} more</div>
+          )}
         </div>
       )}
     </div>

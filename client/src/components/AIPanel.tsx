@@ -84,10 +84,8 @@ export function AIPanel({ db, onAddMany }: AIPanelProps) {
         onDrop={onDrop}
       >
         {!image ? (
-          <button className="scan-bar-trigger" onClick={usePlaceholder}>
-            <span className="scan-bar-ico"><Icon.Image size={16} /></span>
-            <span className="scan-bar-label">Scan a menu screenshot</span>
-            <span className="scan-bar-hint">paste · drop · click — ⌘V</span>
+          <button className="scan-bar-trigger" onClick={usePlaceholder} title="Scan a menu photo — paste, drop, or click">
+            <Icon.Camera size={24} />
           </button>
         ) : (
           <>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect, type RefObject } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect, type RefObject } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -11,9 +11,10 @@ import {
 } from '@dnd-kit/core';
 import { searchOpenFoodFacts } from './lib/openFoodFacts';
 import { Nav } from './components/Nav';
-import { DayBar } from './components/DayBar';
+import { MacroBar } from './components/MacroBar';
+import { Vault } from './components/Vault';
 import { MealSlot } from './components/MealSlot';
-import { ResultsGrid } from './components/ResultsGrid';
+import { FoodDiscovery } from './components/FoodDiscovery';
 import { AIPanel } from './components/AIPanel';
 import { FoodModal } from './components/FoodModal';
 import { HeroSearch } from './components/HeroSearch';
@@ -23,7 +24,7 @@ import { useToast } from './hooks/useToast';
 import { useKeyboardShortcut } from './hooks/useKeyboardShortcut';
 import { useDayPlan, computeDelta } from './hooks/useDayPlan';
 import { FOOD_DB, INITIAL_FAVOURITES, ingredientToFood } from './data/foods';
-import type { Food, MealSlotId, DragTarget, ViewMode } from './types';
+import type { Food, MealSlotId, DragTarget, MacroDelta } from './types';
 
 // ── Drag overlay — ghost card while dragging ──────────────
 
@@ -69,7 +70,7 @@ const DEFAULT_DRAG_GRAMS = 150;
 
 export default function App() {
   const [query, setQuery] = useState('');
-  const [view] = useState<ViewMode>('food');
+  const [activeSlotId, setActiveSlotId] = useState<string>('meal-1');
   const [favourites, setFavourites] = useState<string[]>(INITIAL_FAVOURITES);
   const [modalFood, setModalFood] = useState<Food | null>(null);
   const [analysing, setAnalysing] = useState(false);
@@ -81,13 +82,18 @@ export default function App() {
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRef = useRef<HTMLInputElement>(null) as RefObject<HTMLInputElement>;
 
-  // Drag state — lifted to root so DayBar can read it simultaneously
-  const [expandedSlotId, setExpandedSlotId] = useState<string | null>(null);
+  // Drag state
   const [draggingFood, setDraggingFood] = useState<Food | null>(null);
-  const [dragTarget, setDragTarget] = useState<DragTarget>(null);
+  const [dragTarget, setDragTarget] = useState<DragTarget>(null); // kept for swap detection
   const [dragGrams] = useState(DEFAULT_DRAG_GRAMS);
 
   const { slots, visibleSlots, dispatch, dayTotals } = useDayPlan(knownFoods);
+
+  const activeDelta = useMemo<MacroDelta | null>(() => {
+    if (!draggingFood || !dragTarget) return null;
+    return computeDelta(draggingFood, dragTarget, slots, dragGrams, knownFoods);
+  }, [draggingFood, dragTarget, slots, dragGrams, knownFoods]);
+
   const { message: toast, showToast } = useToast();
 
   const sensors = useSensors(
@@ -132,16 +138,12 @@ export default function App() {
     searchRef.current?.focus();
   }, []));
 
-  // ── Delta preview — computed for DayBar ───────
-  const activeDelta = useMemo(() => {
-    if (!draggingFood || !dragTarget) return null;
-    return computeDelta(draggingFood, dragTarget, slots, dragGrams, knownFoods);
-  }, [draggingFood, dragTarget, slots, dragGrams, knownFoods]);
 
   // ── DnD handlers ──────────────────────────────
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    const food = knownFoods.find((f) => f.id === event.active.id as string);
+    const dragData = event.active.data.current as { food?: Food } | undefined;
+    const food = dragData?.food ?? knownFoods.find((f) => f.id === event.active.id as string) ?? null;
     if (food) setDraggingFood(food);
   }, [knownFoods]);
 
@@ -175,6 +177,7 @@ export default function App() {
 
     if (data.type === 'slot') {
       const slotId = data.slotId as MealSlotId;
+      setActiveSlotId(slotId);
       if (food.ingredients?.length) {
         const ingFoods = food.ingredients.map((ing) => ingredientToFood(ing, food.id));
         setKnownFoods((prev) => {
@@ -194,11 +197,17 @@ export default function App() {
     } else if (data.type === 'ingredient') {
       const slotId = data.slotId as MealSlotId;
       const itemId = data.itemId as string;
+      setActiveSlotId(slotId);
       dispatch({ type: 'SWAP_INGREDIENT', slotId, itemId, food });
       setKnownFoods((prev) => prev.find((f) => f.id === food.id) ? prev : [...prev, food]);
       showToast(`Swapped for ${food.name.split(',')[0]}`);
+    } else if (data.type === 'vault') {
+      if (!favourites.includes(food.id)) {
+        setFavourites((f) => [...f, food.id]);
+        showToast(`${food.name.split(',')[0]} saved to vault`);
+      }
     }
-  }, [draggingFood, dispatch, dragGrams, showToast]);
+  }, [draggingFood, dispatch, dragGrams, showToast, setActiveSlotId, favourites, setFavourites]);
 
   // ── Plan mutations ────────────────────────────
 
@@ -275,58 +284,55 @@ export default function App() {
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
+      <div className="app-shell">
       <Nav />
-
-      <DayBar totals={dayTotals} delta={activeDelta} />
+      <MacroBar totals={dayTotals} delta={activeDelta} />
 
       <div className="destiny-layout">
-        {/* ── Three meal slots ── */}
-        <div
-          className="meal-slots"
-          style={{ gridTemplateColumns: `repeat(${Math.min(visibleSlots.length, 3)}, minmax(0, 1fr))` }}
-        >
-          {visibleSlots.map((slot) => (
-            <MealSlot
-              key={slot.id}
-              slot={slot}
-              knownFoods={knownFoods}
-              draggingFood={draggingFood}
-              dragGrams={dragGrams}
-              dayTotals={dayTotals}
-              expanded={expandedSlotId === slot.id}
-              onToggle={() => setExpandedSlotId((id) => id === slot.id ? null : slot.id)}
-              onRemove={(itemId) => dispatch({ type: 'REMOVE_FROM_SLOT', slotId: slot.id, itemId })}
-              onClear={() => dispatch({ type: 'CLEAR_SLOT', slotId: slot.id })}
-            />
-          ))}
+        {/* ── Top-left: meal squares (XMB slide) ── */}
+        <div className="meal-row">
+          <div className="meal-row-inner">
+            {visibleSlots.map((slot) => (
+              <MealSlot
+                key={slot.id}
+                slot={slot}
+                knownFoods={knownFoods}
+                draggingFood={draggingFood}
+                dragGrams={dragGrams}
+                dayTotals={dayTotals}
+                isActive={activeSlotId === slot.id}
+                onSelect={() => setActiveSlotId(slot.id)}
+                onClear={() => dispatch({ type: 'CLEAR_SLOT', slotId: slot.id })}
+                onRemoveIngredient={(itemId) => dispatch({ type: 'REMOVE_FROM_SLOT', slotId: slot.id, itemId })}
+              />
+            ))}
+          </div>
         </div>
 
-        {/* ── Search + results ── */}
-        <div className="search-section">
-          <HeroSearch
+        {/* ── Right: food discovery + search bar at bottom ── */}
+        <div className="right-col">
+          <FoodDiscovery
+            results={displayDb}
             query={query}
-            setQuery={setQuery}
-            inputRef={searchRef}
-            onAnalyse={onAnalyse}
-            analysing={analysing}
+            searching={searching}
+            favourites={favourites}
+            onToggleFav={toggleFav}
           />
 
-          <div className="ai-block">
-            <div className="ai-block-header">
-              <h3 className="ai-block-title">AI analyse</h3>
-              <span className="ai-block-sub">Describe or screenshot</span>
-            </div>
+          <div className="search-bar-footer">
+            <HeroSearch
+              query={query}
+              setQuery={setQuery}
+              inputRef={searchRef}
+              onAnalyse={onAnalyse}
+              analysing={analysing}
+            />
             <AIPanel db={FOOD_DB} onAddMany={addManyToPlan} />
           </div>
-
-          <ResultsGrid
-            db={displayDb}
-            query={query}
-            view={view}
-            favourites={favourites}
-            searching={searching}
-          />
         </div>
+
+        {/* ── Right: vault (saved favourites) ── */}
+        <Vault foods={knownFoods} favourites={favourites} onToggleFav={toggleFav} onSelectFood={(food) => setModalFood(food)} />
       </div>
 
       {/* Drag ghost overlay */}
@@ -348,7 +354,9 @@ export default function App() {
         />
       )}
 
+
       <Toast message={toast} />
+      </div>
     </DndContext>
   );
 }

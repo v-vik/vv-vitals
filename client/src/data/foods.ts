@@ -185,7 +185,18 @@ export const INITIAL_PLAN: PlanGroup[] = [
   },
 ];
 
-export const INITIAL_FAVOURITES: string[] = ['chobani-greek', 'almond-butter', 'salmon'];
+export const INITIAL_FAVOURITES: string[] = [
+  'chobani-greek',
+  'almond-butter',
+  'salmon',
+  'chicken-breast',
+  'brown-rice',
+  'banana',
+  'eggs',
+  'avocado',
+  'rolled-oats',
+  'big-mac',
+];
 
 export const DAILY_CAL_GOAL = 2200;
 

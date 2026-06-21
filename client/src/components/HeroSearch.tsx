@@ -53,12 +53,6 @@ export function HeroSearch({ query, setQuery, inputRef, onAnalyse, analysing }: 
           )}
         </div>
       </div>
-      <div className="hero-search-hint">
-        <span>
-          <strong>Tip</strong> — free-text it ("two poached eggs on sourdough"), hit{' '}
-          <kbd>⌘↵</kbd>, and AI estimates the macros.
-        </span>
-      </div>
     </div>
   );
 }
