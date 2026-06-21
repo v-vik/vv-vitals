@@ -5,7 +5,8 @@ import {
   type DragStartEvent,
   type DragOverEvent,
   type DragEndEvent,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -87,7 +88,17 @@ export default function App() {
   const [dragTarget, setDragTarget] = useState<DragTarget>(null); // kept for swap detection
   const [dragGrams] = useState(DEFAULT_DRAG_GRAMS);
 
-  const { slots, visibleSlots, dispatch, dayTotals } = useDayPlan(knownFoods);
+  const { slots, visibleSlots, dispatch, dayTotals, slotTotals } = useDayPlan(knownFoods);
+
+  // Meal options shown in the modal's picker — the visible (filled + next empty) slots.
+  const mealOptions = useMemo(
+    () =>
+      visibleSlots.map((slot) => {
+        const t = slotTotals.get(slot.id);
+        return { id: slot.id, label: slot.label, cal: t?.cal ?? 0, items: t?.items ?? 0 };
+      }),
+    [visibleSlots, slotTotals]
+  );
 
   const activeDelta = useMemo<MacroDelta | null>(() => {
     if (!draggingFood || !dragTarget) return null;
@@ -96,8 +107,11 @@ export default function App() {
 
   const { message: toast, showToast } = useToast();
 
+  // Mouse drags instantly (desktop). Touch requires a short press-hold so a quick
+  // tap opens the modal and a vertical swipe scrolls the page instead of dragging.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } })
   );
 
   // ── Search effect ─────────────────────────────
@@ -251,12 +265,13 @@ export default function App() {
     showToast(`Added ${expanded.length} item${expanded.length > 1 ? 's' : ''} to Meal 1`);
   }, [dispatch, showToast]);
 
-  // When FoodModal adds a food (fallback for AI panel results)
+  // When FoodModal adds a food — slotId chosen via the modal's meal picker
   const addItemFromModal = useCallback(
-    ({ foodId, grams }: { foodId: string; grams: number; groupId: string | null }) => {
+    ({ foodId, grams, slotId }: { foodId: string; grams: number; slotId: MealSlotId }) => {
       const food = knownFoods.find((f) => f.id === foodId);
       if (!food) return;
-      const targetSlot = slots.find((s) => s.items.length > 0)?.id ?? 'meal-1';
+      const targetSlot = slotId;
+      setActiveSlotId(targetSlot);
       if (food.ingredients?.length) {
         const ingFoods = food.ingredients.map((ing) => ingredientToFood(ing, food.id));
         setKnownFoods((prev) => {
@@ -274,7 +289,7 @@ export default function App() {
       }
       setModalFood(null);
     },
-    [knownFoods, slots, dispatch, showToast]
+    [knownFoods, dispatch, showToast]
   );
 
   return (
@@ -317,6 +332,7 @@ export default function App() {
             searching={searching}
             favourites={favourites}
             onToggleFav={toggleFav}
+            onSelectFood={(food) => setModalFood(food)}
           />
 
           <div className="search-bar-footer">
@@ -347,7 +363,7 @@ export default function App() {
           plan={[]}
           onClose={() => setModalFood(null)}
           onAdd={addItemFromModal}
-          defaultGroupId={null}
+          mealOptions={mealOptions}
           originRect={null}
           isFav={favourites.includes(modalFood.id)}
           onToggleFav={() => toggleFav(modalFood.id)}

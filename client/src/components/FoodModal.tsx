@@ -2,15 +2,23 @@ import { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
 import { FoodGlyph } from './FoodGlyph';
 import { Icon } from './Icon';
 import { computeMacros, planTotals, fmt, snapToStep } from '../data/foods';
-import type { Food, PlanGroup } from '../types';
+import type { Food, PlanGroup, MealSlotId } from '../types';
+
+// A meal slot the user can add this food into, shown in the picker.
+export interface MealOption {
+  id: MealSlotId;
+  label: string;
+  cal: number;
+  items: number;
+}
 
 interface FoodModalProps {
   food: Food;
   db: Food[];
   plan: PlanGroup[];
   onClose: () => void;
-  onAdd: (args: { foodId: string; grams: number; groupId: string | null }) => void;
-  defaultGroupId: string | null;
+  onAdd: (args: { foodId: string; grams: number; slotId: MealSlotId }) => void;
+  mealOptions: MealOption[];
   originRect: DOMRect | null;
   isFav: boolean;
   onToggleFav: () => void;
@@ -22,7 +30,7 @@ export function FoodModal({
   plan,
   onClose,
   onAdd,
-  defaultGroupId,
+  mealOptions,
   originRect,
   isFav,
   onToggleFav,
@@ -86,8 +94,8 @@ export function FoodModal({
     }
   }, [originRect]);
 
-  const handleAdd = (groupId: string | null) => {
-    onAdd({ foodId: food.id, grams, groupId });
+  const handleAdd = (slotId: MealSlotId) => {
+    onAdd({ foodId: food.id, grams, slotId });
   };
 
   return (
@@ -181,32 +189,31 @@ export function FoodModal({
             </div>
           )}
 
+          <div className="meal-picker">
+            <div className="meal-picker-label">Add to which meal?</div>
+            <div className="meal-picker-grid">
+              {mealOptions.map((meal) => (
+                <button
+                  key={meal.id}
+                  className="meal-pick-btn"
+                  onClick={() => handleAdd(meal.id)}
+                >
+                  <Icon.Hexagon size={12} />
+                  <span className="meal-pick-name">{meal.label}</span>
+                  <span className="meal-pick-cal">
+                    {meal.items === 0 ? 'empty' : `${fmt.cal(meal.cal)} cal`}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="modal-actions">
             <button className="btn btn-secondary" onClick={onToggleFav}>
               <Icon.Heart size={13} filled={isFav} />
               {isFav ? 'Saved' : 'Save to favourites'}
             </button>
-            <button className="btn btn-primary" onClick={() => handleAdd(defaultGroupId)}>
-              <Icon.Plus size={13} />
-              Add to plan
-            </button>
           </div>
-
-          {plan.length > 0 && (
-            <div className="group-buttons">
-              <div className="group-buttons-label">Or add to an existing group</div>
-              {plan.map((g) => (
-                <button
-                  key={g.id}
-                  className="btn btn-group-add"
-                  onClick={() => handleAdd(g.id)}
-                >
-                  <Icon.Hexagon size={12} />
-                  <span>Add to {g.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </div>

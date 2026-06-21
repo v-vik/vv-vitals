@@ -24,7 +24,7 @@ function MacroRatioBar({ protein = 0, carbs = 0, fat = 0 }: { protein?: number; 
 
 // ── Hero card — the top result, large and draggable ───────
 
-function HeroCard({ food, isFav, onToggleFav }: { food: Food; isFav: boolean; onToggleFav: () => void }) {
+function HeroCard({ food, isFav, onToggleFav, onSelect }: { food: Food; isFav: boolean; onToggleFav: () => void; onSelect: () => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: food.id,
     data: { food },
@@ -36,6 +36,7 @@ function HeroCard({ food, isFav, onToggleFav }: { food: Food; isFav: boolean; on
       className={`hero-food-card${isDragging ? ' dragging' : ''}`}
       {...listeners}
       {...attributes}
+      onClick={onSelect}
     >
       <div className="hero-food-glyph">
         <FoodGlyph food={food} size={96} />
@@ -89,7 +90,7 @@ function HeroCard({ food, isFav, onToggleFav }: { food: Food; isFav: boolean; on
 
 // ── Alt card — compact draggable row ─────────────────────
 
-function AltCard({ food, isFav, onToggleFav }: { food: Food; isFav: boolean; onToggleFav: () => void }) {
+function AltCard({ food, isFav, onToggleFav, onSelect }: { food: Food; isFav: boolean; onToggleFav: () => void; onSelect: () => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: food.id,
     data: { food },
@@ -101,6 +102,7 @@ function AltCard({ food, isFav, onToggleFav }: { food: Food; isFav: boolean; onT
       className={`alt-food-card${isDragging ? ' dragging' : ''}`}
       {...listeners}
       {...attributes}
+      onClick={onSelect}
     >
       <FoodGlyph food={food} size={32} />
       <div className="alt-food-info">
@@ -133,9 +135,10 @@ interface FoodDiscoveryProps {
   searching?: boolean;
   favourites: string[];
   onToggleFav: (id: string) => void;
+  onSelectFood: (food: Food) => void;
 }
 
-export function FoodDiscovery({ results, query, searching, favourites, onToggleFav }: FoodDiscoveryProps) {
+export function FoodDiscovery({ results, query, searching, favourites, onToggleFav, onSelectFood }: FoodDiscoveryProps) {
   if (searching) {
     return (
       <div className="discovery-state">
@@ -164,6 +167,7 @@ export function FoodDiscovery({ results, query, searching, favourites, onToggleF
         food={hero}
         isFav={favourites.includes(hero.id)}
         onToggleFav={() => onToggleFav(hero.id)}
+        onSelect={() => onSelectFood(hero)}
       />
 
       {alts.length > 0 && (
@@ -175,6 +179,7 @@ export function FoodDiscovery({ results, query, searching, favourites, onToggleF
               food={food}
               isFav={favourites.includes(food.id)}
               onToggleFav={() => onToggleFav(food.id)}
+              onSelect={() => onSelectFood(food)}
             />
           ))}
         </div>

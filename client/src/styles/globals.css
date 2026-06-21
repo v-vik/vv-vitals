@@ -2140,6 +2140,48 @@ input[type=range].slider::-moz-range-thumb {
   padding-top: 10px;
 }
 
+/* ── Meal picker (modal) — choose which meal to add to ───── */
+.meal-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.meal-picker-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--nebula);
+}
+.meal-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.meal-pick-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--parchment);
+  background: var(--burgundy-dim);
+  border: 0.5px solid var(--burgundy);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  text-align: left;
+}
+.meal-pick-btn:hover { background: rgba(139, 38, 53, 0.20); }
+.meal-pick-btn:active { background: rgba(139, 38, 53, 0.28); }
+.meal-pick-name { flex: 1; letter-spacing: 0.04em; }
+.meal-pick-cal {
+  font-size: 10px;
+  color: var(--pewter);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Food glyph ───────────────────────────────── */
 .food-glyph {
   display: inline-flex;
@@ -2791,6 +2833,23 @@ input[type=range].slider::-moz-range-thumb {
   .ing-bubble .food-glyph svg {
     width: 28px;
     height: 28px;
+  }
+
+  /* Modal becomes a thumb-reachable bottom sheet on mobile */
+  .modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .modal {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-bottom: none;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  /* One column of meal buttons — easier tap targets */
+  .meal-picker-grid {
+    grid-template-columns: 1fr;
   }
 }
 
