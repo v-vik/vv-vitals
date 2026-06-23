@@ -1,51 +1,76 @@
 # v--v Vitals
 
-A personal nutrition planning app — built as a portfolio project to demonstrate production-quality React and TypeScript.
+A nutrition **day-planner** — the inverse of a conventional calorie tracker. Instead of logging
+meals *after* you eat, you build your whole day upfront, watch your macro totals update in real
+time, and adjust until the day looks right.
 
-The core idea is the opposite of conventional calorie trackers: instead of logging meals *after* you eat, you plan your full day *upfront*, watch your macro totals update in real time, and adjust until the day looks right.
+Built as a portfolio project to demonstrate production-quality React + TypeScript, a hand-authored
+design system, and a genuinely novel interaction model.
+
+> **Live demo:** _add your Vercel URL here_
+
+![v--v Vitals](verify-01-full.png)
 
 ---
 
-## Features
+## The idea
 
-### Food discovery
-- **Hero search** — large serif input that filters the food database as you type, with a `/` keyboard shortcut to focus it from anywhere
-- **Food/Drink/Favourite tabs** — vertical browse column with item counts; filters the results grid instantly
-- **Sort controls** — sort by Default / Protein / Carbs / Fat / Calories with a pill-style button group
+Most trackers are retrospective and guilt-driven. v--v Vitals is the opposite:
 
-### Food cards
-- Grid layout with a custom monoline SVG icon per food (yoghurt bowl, salmon, espresso, etc.)
-- Macro ratio bar — a thin coloured strip showing the protein/carb/fat split, scaled logarithmically so dense foods don't overwhelm the chart
-- Category colour tinting on the glyph badge (burgundy for protein, rose for fruit, nebula for vegetables, etc.)
+- **Plan, don't log** — assemble the full day before you eat it.
+- **See the impact before you commit** — drag a food over a meal slot and the macro bar previews
+  the *delta* it would add, in real time, before you drop it.
+- **No targets, no history, no scores** — running totals only. Today's plan is the whole product.
 
-### Food modal
-- Opens with an origin-anchored animation — grows from the card's position using `useLayoutEffect` and CSS transitions
-- Gram slider (25g–500g, step 25g) with live macro recalculation on every drag
-- "Day total after adding" line — shows the running total impact before committing
-- Save to favourites / Add to plan buttons
-- Contextual "Add to [meal group]" buttons for every existing group in the cart
+The UI takes its cues from the **Destiny 1 character screen**: your day is a row of meal "slots"
+you equip foods into, with a persistent stats bar across the top.
 
-### Cart (day plan)
-- Fixed right-side panel, collapsible via the nav cart button
-- Foods displayed as bubbles: glyph icon | name + gram/macro summary | calorie count + remove button
-- Meal grouping — multiple items auto-group and show a "Save meal" prompt; click to name the group (e.g. "Yoghurt bowl")
-- Inline rename flow with keyboard support (Enter to save, Esc to cancel)
-- "+ Add new meal group" button
-- Totals bar: Cal / Protein / Carbs / Fat
+---
 
-### AI features (mocked, ready to wire up)
-- **AI Describe** — type a meal description in the hero search, press ⌘↵, and the app simulates an AI response (~1.1s latency) opening the food modal with an "AI estimate" badge
-- **Scan a menu** — paste or drop a menu screenshot; simulates a scan returning detected items as an addable checklist
+## Key interactions
 
-### Stats bar
-- Sticky sub-nav showing today's Cal / Protein / Carbs / Fat with icons (flame, drumstick, wheat, droplet, bean)
-- Calories display in burgundy accent; all values update live as items are added or removed
+### Drag-to-equip
+Foods are dragged from the discovery grid onto numbered meal slots. Built on
+[`@dnd-kit`](https://dndkit.com/) with separate **mouse** and **touch** sensors — desktop drags
+start after 6px of movement, while touch requires a 180ms press-and-hold so that a quick tap opens
+the detail modal and a vertical swipe still scrolls the page.
 
-### UX details
-- Toast notifications — 2s auto-dismiss, appears on every add/remove/favourite action
-- Cart pulse animation — the nav cart icon scales up on every item count increase (force-reflow trick to re-trigger CSS animation)
-- ESC closes the modal; clicking the backdrop closes it
-- Body scroll locks while the modal is open
+### Live macro-delta preview
+While a food hovers over a slot, the top macro bar shows the **change** it would make to the day —
+not just the food's own macros. Dropping onto an existing ingredient computes a true *swap delta*
+(`new − old`). All of this is derived state, recomputed on every drag-over via a pure
+`computeDelta()` function — nothing is stored twice.
+
+### Ingredient swapping
+Drop a food directly onto an ingredient already in a meal and it swaps in place, keeping the slot
+intact. The drop target is a **discriminated union** (`{ type: 'slot' } | { type: 'ingredient' } | null`),
+so the type system forces every drop case to be handled.
+
+### Progressive meal reveal
+The day starts as a single empty slot. As you fill slots, the next empty one appears — filled slots
+plus exactly one trailing drop target — so the row grows with your plan instead of showing six empty
+boxes up front.
+
+### The Vault
+A drag target for saving foods to a personal favourites library. Drag any food to the Vault to keep
+it; it stays one drag away from re-entering tomorrow's plan.
+
+### Food detail modal
+Tap any food to open a detail modal with a gram slider (live macro recalculation as you drag) and a
+meal picker so you can choose which slot it lands in.
+
+---
+
+## Food data
+
+- **Live search** against the [Open Food Facts](https://world.openfoodfacts.org/) API (3M+ products,
+  no API key). Queries are debounced 400ms, normalised into the app's `Food` shape, auto-categorised
+  from OFF's `categories_tags`, and energy is converted from kJ to kcal when kcal isn't provided.
+- A curated **local food database** seeds the discovery grid before you search, including multi-
+  ingredient foods (e.g. a yoghurt bowl) that expand into their components when added.
+- **AI features** (describe-a-meal and scan-a-menu-photo) are currently **simulated stubs** with
+  realistic latency, designed to be wired to a Claude API proxy on the backend — the request/response
+  shapes and UI flows are already in place.
 
 ---
 
@@ -55,34 +80,41 @@ The core idea is the opposite of conventional calorie trackers: instead of loggi
 |---|---|
 | Frontend | React 18 + TypeScript |
 | Build | Vite |
-| Styling | Vanilla CSS (2,780-line hand-tuned design system, no Tailwind/shadcn) |
-| State | `useState` + `useReducer` patterns, no external store |
+| Drag & drop | `@dnd-kit/core` (custom mouse/touch sensors) |
+| State | `useReducer` + discriminated-union actions; `useState` for UI state |
+| Styling | Hand-authored CSS design system (~2,850 lines) — no Tailwind, no component library |
 | Backend | Node.js + Express + TypeScript |
-| Database | SQLite via `better-sqlite3` |
-| Fonts | DM Serif Display + DM Mono (Google Fonts) |
+| Database | SQLite via `better-sqlite3` (WAL mode) |
+| External API | Open Food Facts |
+| Fonts | DM Serif Display + DM Mono |
+| Deploy | Vercel (client) |
 
 ---
 
 ## Architecture decisions
 
-### No UI library
-The entire visual identity lives in a single hand-authored `styles.css` — 2,780 lines of custom properties, component classes, and animations. No Tailwind, no shadcn, no Radix. This makes the design system the portfolio piece, not a third-party library.
+**`useReducer` for the day plan.** Meal slots, their items, and the derived day/slot totals all
+change together. A single reducer with discriminated-union action types (`ADD_TO_SLOT`,
+`SWAP_INGREDIENT`, `REMOVE_FROM_SLOT`, `CLEAR_SLOT`, …) keeps every mutation in one predictable
+place. ([client/src/hooks/useDayPlan.ts](client/src/hooks/useDayPlan.ts))
 
-### Flat TypeScript types over inference
-Every data shape is defined once in `src/types.ts` (`Food`, `PlanGroup`, `PlanItem`, `Macros`, `Totals`) and imported wherever needed. The food database module re-exports typed helper functions (`computeMacros`, `planTotals`, `groupCal`) that are pure and easily testable.
+**Store the minimum, derive the rest.** Macros, day totals, slot totals, the visible-slot set, and
+the drag delta are all `useMemo`-derived from `{ slots, knownFoods }`. The only stored state is the
+gram quantity and which food sits in which slot — everything else is computed.
 
-### `useState` over a global store
-The cart (plan) state is a flat array of `PlanGroup[]` managed in `App.tsx` with `useState` and immutable update patterns. State flows down via props; mutations flow up via callbacks. No Redux, no Zustand — demonstrating that React's built-in model scales to this complexity without additional dependencies.
+**Discriminated unions over booleans.** The drag target and the reducer actions are tagged unions, so
+TypeScript's exhaustiveness checking catches an unhandled case at compile time rather than at runtime.
 
-### `useCallback` + `useMemo` for performance hygiene
-All callbacks passed to child components are wrapped in `useCallback`. Derived values (totals, counts, filtered results) are wrapped in `useMemo`. This prevents unnecessary re-renders without resorting to external state management.
+**No UI library.** The entire visual identity lives in one hand-tuned stylesheet
+([client/src/styles/globals.css](client/src/styles/globals.css)) — custom properties, component
+classes, and animations. The design system *is* the portfolio piece, not a third-party theme.
 
-### Custom hooks for cross-cutting concerns
-- `useToast` — timer-managed toast state with `useRef` to avoid stale closure on repeated calls
-- `useKeyboardShortcut` — event listener lifecycle managed cleanly in `useEffect`
+**Accessibility-minded drag.** Touch and mouse are handled by distinct sensors with their own
+activation constraints so the gesture set (tap-to-open vs. hold-to-drag vs. swipe-to-scroll) stays
+unambiguous on mobile.
 
-### Origin-anchored modal animation
-When a food card is clicked, its `DOMRect` is captured and passed to `FoodModal`. A `useLayoutEffect` calculates the translation and scale delta between the card's position and the modal's centered position, then applies a CSS transition from the card outward. This is a pure DOM measurement pattern with no animation library.
+**Custom hooks for cross-cutting concerns.** `useToast` (timer-managed, `useRef` to avoid stale
+closures) and `useKeyboardShortcut` (`/` focuses search) keep `App.tsx` focused on orchestration.
 
 ---
 
@@ -92,34 +124,31 @@ When a food card is clicked, its `DOMRect` is captured and passed to `FoodModal`
 vv-vitals/
   client/
     src/
-      styles/
-        globals.css          ← 2,780-line design system (copied verbatim from prototype)
-      types.ts               ← Food, PlanGroup, PlanItem, Macros, Totals, ViewMode, SortKey
-      data/
-        foods.ts             ← Food DB + computeMacros, planTotals, groupCal, fmt helpers
-      components/
-        Icon.tsx             ← 18 monoline SVG icons, typed with IconProps
-        Nav.tsx              ← Wordmark lockup + cart button with pulse animation
-        FilterBar.tsx        ← Day stats strip + BrowseColumn (Food/Drink/Favourite tabs)
-        HeroSearch.tsx       ← Large search input + AI Describe shortcut
-        FoodGlyph.tsx        ← Per-food SVG icon + category colour tinting
-        ResultsGrid.tsx      ← FoodCard grid, MacroRatioBar, sort controls
-        AIPanel.tsx          ← Scan-a-menu bar with paste/drop/scan flow
-        Cart.tsx             ← Fixed side panel: groups, bubbles, rename, totals
-        FoodModal.tsx        ← Gram slider + live macros + origin animation + group buttons
-        Toast.tsx            ← 2s auto-dismiss notification
+      App.tsx                  ← Root: DnD context, drag handlers, layout orchestration
+      types.ts                 ← Food, MealSlot, PlanItem, DragTarget (union), Macros, Totals
+      data/foods.ts            ← Local food DB + computeMacros / fmt helpers
+      lib/openFoodFacts.ts     ← Open Food Facts search + normalisation to Food
       hooks/
-        useToast.ts          ← Timer-managed toast state
-        useKeyboardShortcut.ts ← Keyboard event listener with proper cleanup
-      App.tsx                ← Root: all state, all callbacks, layout orchestration
-      main.tsx               ← Entry point
+        useDayPlan.ts          ← useReducer day-plan store + computeDelta()
+        useToast.ts            ← Timer-managed toast state
+        useKeyboardShortcut.ts ← Keyboard listener with clean lifecycle
+      components/
+        MealSlot.tsx           ← Destiny-style meal square (drop target)
+        FoodDiscovery.tsx      ← Searchable food grid (drag sources)
+        Vault.tsx              ← Favourites library + drop target
+        MacroBar.tsx           ← Top stats bar with live delta preview
+        FoodModal.tsx          ← Gram slider + meal picker
+        AIPanel.tsx            ← Scan-a-menu flow (simulated)
+        HeroSearch.tsx         ← Search input + AI-describe shortcut
+        FoodGlyph.tsx / Icon.tsx / Nav.tsx / Toast.tsx
+      styles/globals.css       ← ~2,850-line design system
   server/
     src/
-      index.ts               ← Express entry point (port 3001, CORS for localhost:5173)
-      db.ts                  ← SQLite setup (WAL mode, foods table)
+      index.ts                 ← Express entry (port 3001, CORS, error handler)
+      db.ts                    ← SQLite setup (WAL mode)
       routes/
-        foods.ts             ← GET /api/foods, POST /api/foods, DELETE /api/foods/:id
-        diary.ts             ← Diary entry and meal logging endpoints
+        foods.ts               ← Foods CRUD (GET/POST/PUT/DELETE)
+        diary.ts               ← Diary entries, meals, and meal-food logging
 ```
 
 ---
@@ -127,20 +156,21 @@ vv-vitals/
 ## Running locally
 
 ```bash
-# Backend
-cd server && npm install && npm run dev
+# Backend  (terminal 1)
+cd server && npm install && npm run dev      # http://localhost:3001
 
-# Frontend (separate terminal)
-cd client && npm install && npm run dev
+# Frontend (terminal 2)
+cd client && npm install && npm run dev      # http://localhost:5173
 ```
 
-Open `http://localhost:5173`
+The client runs standalone on the local food database + Open Food Facts search, so you can explore
+the full planner UI without the backend running.
 
 ---
 
 ## Design system
 
-The visual identity is the v--v personal brand:
+A warm, parchment-toned identity under the **v--v** personal brand:
 
 | Token | Value | Usage |
 |---|---|---|
@@ -149,7 +179,7 @@ The visual identity is the v--v personal brand:
 | `--cosmos` | `#F7F0E0` | Elevated surfaces (modals) |
 | `--burgundy` | `#8B2635` | Primary accent |
 | `--nebula` | `#6B2A7E` | Section labels, small caps |
-| `--parchment` | `#2A2826` | Primary text (dark graphite) |
+| `--parchment` | `#2A2826` | Primary text |
 | `--pewter` | `#837E76` | Secondary / muted text |
 | `--font-serif` | DM Serif Display | Headlines, food names, wordmark |
 | `--font-mono` | DM Mono | Body, labels, numbers, UI |
