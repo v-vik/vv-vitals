@@ -7,7 +7,7 @@ time, and adjust until the day looks right.
 Built as a portfolio project to demonstrate production-quality React + TypeScript, a hand-authored
 design system, and a genuinely novel interaction model.
 
-> **Live demo:** _add your Vercel URL here_
+> **Live demo:** https://vitals-dusky-beta.vercel.app/
 
 ![v--v Vitals](verify-01-full.png)
 
