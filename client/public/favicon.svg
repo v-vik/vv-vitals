@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="v--v Vitals">
+  <rect width="48" height="48" rx="11" fill="#0A0612"/>
+  <g fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <!-- left v -->
+    <path d="M8 18 L13 30 L18 18" stroke="#E5DBCB"/>
+    <!-- the two burgundy dashes -->
+    <path d="M19.5 24 L23 24" stroke="#8B2635"/>
+    <path d="M25 24 L28.5 24" stroke="#8B2635"/>
+    <!-- right v -->
+    <path d="M30 18 L35 30 L40 18" stroke="#E5DBCB"/>
+  </g>
+</svg>
